@@ -1,0 +1,2 @@
+// Define an icon named "APP_ICON" that uses the icon file located at "../assets/icon.ico"
+APP_ICON ICON "../assets/icon.ico"
