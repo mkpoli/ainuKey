@@ -9,6 +9,8 @@ const UTF16StringLiteral = wintype.UTF16StringLiteral;
 const registry = @import("windows/registry.zig");
 const HKEY_CLASSES_ROOT = registry.HKEY_CLASSES_ROOT;
 
+const profile = @import("windows/profile.zig");
+
 const to16 = unicode.utf8ToUtf16LeStringLiteral;
 
 const CLSID: UTF16StringLiteral = to16("CLSID\\");
@@ -30,7 +32,6 @@ pub fn unregisterServer(comptime guid: UTF16StringLiteral) !void {
 }
 
 const messageBox = @import("windows/debug.zig").messageBox;
-const messageBoxW = @import("windows/debug.zig").messageBoxW;
 
 // const LocaleNameToLCID = windows.LocaleNameToLCID;
 
@@ -58,6 +59,8 @@ const LocaleNameToLCID = win32.globalization.LocaleNameToLCID;
 
 const fmt = std.fmt;
 
+const ITfInputProcessorProfiles = profile.ITfInputProcessorProfiles;
+const Guid = win32.zig.Guid;
 pub fn registerProfile(
     comptime language: UTF16StringLiteral,
     dll_path: UTF16String,
@@ -89,4 +92,112 @@ pub fn registerProfile(
     const locale_info_debug = try fmt.bufPrint(all_together_slice, "LocaleInfo: {}", .{locale_info});
 
     messageBox(locale_info_debug, "registerProfile", .Info);
+
+    const profiles = profile.createProfileManager() orelse {
+        messageBox("Failed to create profile manager", "registerProfile", .Error);
+        unreachable;
+    };
+
+    const icon_path = dll_path;
+
+    _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_Register(
+        profiles,
+        &guid,
+    );
+
+    const locale_id_u16: u16 = @intCast(locale_id);
+
+    _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_AddLanguageProfile(
+        profiles,
+        &guid,
+        locale_id_u16,
+        &guid_profile,
+        @ptrCast(description.ptr),
+        @intCast(description.len),
+        @ptrCast(icon_path.ptr),
+        @intCast(icon_path.len),
+        0,
+    );
+
+    messageBox("Profile registered!", "registerProfile", .Info);
+}
+
+pub fn unregisterProfile(
+    // comptime language: UTF16StringLiteral,
+    comptime guid: Guid,
+    // comptime guid_profile: Guid,
+) !void {
+    const profiles = profile.createProfileManager() orelse unreachable;
+
+    // const locale_id = LocaleNameToLCID(language, 0);
+
+    // const locale_id_u16: u16 = @intCast(locale_id);
+
+    _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_Unregister(
+        profiles,
+        &guid,
+    );
+
+    messageBox("Profile unregistered!", "unregisterProfile", .Info);
+
+    // _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_RemoveLanguageProfile(
+    //     profiles,
+    //     &guid,
+    //     locale_id_u16,
+    //     &guid_profile,
+    // );
+}
+
+const category = @import("windows/category.zig");
+
+const SUPPORTED_CATEGORIES: [7]Guid = .{
+    category.GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+    category.GUID_TFCAT_TIPCAP_COMLESS,
+    category.GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
+    category.GUID_TFCAT_TIPCAP_UIELEMENTENABLED,
+    category.GUID_TFCAT_TIP_KEYBOARD,
+    category.GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT,
+    category.GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
+};
+
+const ITfCategoryMgr = category.ITfCategoryMgr;
+
+pub fn registerCategories(
+    comptime guid: Guid,
+) !void {
+    messageBox("Registering categories", "registerCategories", .Info);
+    const category_manager: *ITfCategoryMgr = category.createCategoryManager() orelse {
+        messageBox("Failed to create category manager", "registerCategories", .Error);
+        unreachable;
+    };
+
+    for (SUPPORTED_CATEGORIES) |guid_cat| {
+        _ = ITfCategoryMgr.ITfCategoryMgr_RegisterCategory(
+            category_manager,
+            &guid,
+            &guid_cat,
+            &guid,
+        );
+    }
+    messageBox("Categories registered", "registerCategories", .Info);
+}
+
+pub fn unregisterCategories(
+    comptime guid: Guid,
+) !void {
+    messageBox("Unregistering categories", "unregisterCategories", .Info);
+    const category_manager: *ITfCategoryMgr = category.createCategoryManager() orelse {
+        messageBox("Failed to create category manager", "unregisterCategories", .Error);
+        unreachable;
+    };
+
+    for (SUPPORTED_CATEGORIES) |guid_cat| {
+        _ = ITfCategoryMgr.ITfCategoryMgr_UnregisterCategory(
+            category_manager,
+            &guid,
+            &guid_cat,
+            &guid,
+        );
+    }
+    messageBox("Categories unregistered", "unregisterCategories", .Info);
 }

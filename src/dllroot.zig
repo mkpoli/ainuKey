@@ -29,9 +29,12 @@ const registry = @import("registry.zig");
 const messageBox = @import("windows/debug.zig").messageBox;
 const consts = @import("consts.zig");
 
-const GUID = consts.GUID;
+const GUID = consts.GUID; // TODO: Convert GUID_GUID to GUID
 const NAME = consts.NAME;
 const LANG = consts.LANG;
+const DESC = consts.DESC;
+const GUID_GUID = consts.GUID_GUID;
+const GUID_PROFILE_GUID = consts.GUID_PROFILE_GUID;
 
 const wintype = @import("windows/types.zig");
 const convertPathWToUTF8 = wintype.convertPathWToUTF8;
@@ -53,8 +56,6 @@ pub fn DllMain(hinstDLL: HINSTANCE, fdwReason: DWORD, lpReserved: LPVOID) BOOL {
             // dll_file_name_buffer = module_file_name;
             // dll_file_name = dll_file_name_buffer.items;
             // dll_instance_handle = hinstDLL;
-            // _ = MessageBoxA(null, "Hello World!", "Zig", 0);
-            // messageBox("Hello World!", "Zig");
 
             // // var dll_file_name_u8
             // const dll_file_name = wintype.convertPathWToCStringU8(dll_file_name_w) catch {
@@ -88,16 +89,24 @@ export fn DllRegisterServer() STDAPI {
         error.AccessDenied => return E_ACCESSDENIED,
         error.Unexpected => return E_UNEXPECTED,
     };
-    registry.registerProfile(LANG) catch |err| switch (err) {
+    registry.registerProfile(
+        LANG,
+        dll_file_name_w,
+        DESC,
+        GUID_GUID,
+        GUID_PROFILE_GUID,
+    ) catch |err| switch (err) {
         // error.AccessDenied => return E_ACCESSDENIED,
         // error.Unexpected => return E_UNEXPECTED,
         else => return E_UNEXPECTED,
     };
+    registry.registerCategories(GUID_GUID) catch unreachable;
     return 0;
 }
 
 export fn DllUnregisterServer() STDAPI {
-
+    registry.unregisterProfile(GUID_PROFILE_GUID) catch unreachable;
+    registry.unregisterCategories(GUID_GUID) catch unreachable;
     registry.unregisterServer(GUID) catch |err| switch (err) {
         error.AccessDenied => return E_ACCESSDENIED,
         error.Unexpected => return E_UNEXPECTED,
