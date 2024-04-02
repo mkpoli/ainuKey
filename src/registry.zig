@@ -126,39 +126,31 @@ const category = @import("windows/category.zig");
 pub fn registerCategories(
     comptime guid: Guid,
 ) !void {
-    messageBox("Registering categories", "registerCategories", .Info);
-    const category_manager: *ITfCategoryMgr = category.createCategoryManager() orelse {
-        messageBox("Failed to create category manager", "registerCategories", .Error);
-        unreachable;
+    category.registerCategories(guid, &SUPPORTED_CATEGORIES) catch |err| switch (err) {
+        error.CategoryManagerCreationFailure => {
+            messageBox("Failed to create category manager", "registerCategories", .Error);
+            return err;
+        },
+        error.CategoryRegistrationFailure => {
+            messageBox("Failed to register categories", "registerCategories", .Error);
+            return err;
+        },
     };
-
-    for (SUPPORTED_CATEGORIES) |guid_cat| {
-        _ = ITfCategoryMgr.ITfCategoryMgr_RegisterCategory(
-            category_manager,
-            &guid,
-            &guid_cat,
-            &guid,
-        );
-    }
     messageBox("Categories registered", "registerCategories", .Info);
 }
 
 pub fn unregisterCategories(
     comptime guid: Guid,
 ) !void {
-    messageBox("Unregistering categories", "unregisterCategories", .Info);
-    const category_manager: *ITfCategoryMgr = category.createCategoryManager() orelse {
-        messageBox("Failed to create category manager", "unregisterCategories", .Error);
-        unreachable;
+    category.unregisterCategories(guid, &SUPPORTED_CATEGORIES) catch |err| switch (err) {
+        error.CategoryManagerCreationFailure => {
+            messageBox("Failed to create category manager", "unregisterCategories", .Error);
+            return err;
+        },
+        error.CategoryUnregistrationFailure => {
+            messageBox("Failed to unregister categories", "unregisterCategories", .Error);
+            return err;
+        },
     };
-
-    for (SUPPORTED_CATEGORIES) |guid_cat| {
-        _ = ITfCategoryMgr.ITfCategoryMgr_UnregisterCategory(
-            category_manager,
-            &guid,
-            &guid_cat,
-            &guid,
-        );
-    }
     messageBox("Categories unregistered", "unregisterCategories", .Info);
 }

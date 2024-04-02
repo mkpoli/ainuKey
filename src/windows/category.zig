@@ -17,8 +17,42 @@ const CLSCTX_INPROC_SERVER = com.CLSCTX_INPROC_SERVER;
 const ITfCategoryMgr = ts.ITfCategoryMgr;
 const IID_ITfCategoryMgr = ts.IID_ITfCategoryMgr;
 const CLSID_TF_CategoryMgr = ts.CLSID_TF_CategoryMgr;
-pub fn createCategoryManager() ?*ITfCategoryMgr {
+fn createCategoryManager() ?*ITfCategoryMgr {
     var result: ?*ITfCategoryMgr = null;
     _ = CoCreateInstance(&CLSID_TF_CategoryMgr, null, CLSCTX_INPROC_SERVER, IID_ITfCategoryMgr, @ptrCast(&result));
     return result;
+}
+
+const S_OK = windows.S_OK;
+
+pub fn registerCategories(guid_text_service: Guid, categories: []const Guid) !void {
+    const category_manager = createCategoryManager() orelse {
+        return error.CategoryManagerCreationFailure;
+    };
+
+    for (categories) |category_guid| {
+        const result = ITfCategoryMgr.ITfCategoryMgr_RegisterCategory(category_manager, &guid_text_service, &category_guid, &guid_text_service);
+        switch (result) {
+            S_OK => {},
+            else => {
+                return error.CategoryRegistrationFailure;
+            },
+        }
+    }
+}
+
+pub fn unregisterCategories(guid_text_service: Guid, categories: []const Guid) !void {
+    const category_manager = createCategoryManager() orelse {
+        return error.CategoryManagerCreationFailure;
+    };
+
+    for (categories) |category_guid| {
+        const result = ITfCategoryMgr.ITfCategoryMgr_UnregisterCategory(category_manager, &guid_text_service, &category_guid, &guid_text_service);
+        switch (result) {
+            S_OK => {},
+            else => {
+                return error.CategoryUnregistrationFailure;
+            },
+        }
+    }
 }
