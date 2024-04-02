@@ -83,7 +83,7 @@ export fn DllGetClassObject() STDAPI {
 }
 
 export fn DllRegisterServer() STDAPI {
-    messageBox("DllRegisterServer", "Zig");
+    messageBox("DllRegisterServer", "Zig", .Info);
     registry.registerServer(NAME, dll_file_name_w, GUID) catch |err| switch (err) {
         error.AccessDenied => return E_ACCESSDENIED,
         error.Unexpected => return E_UNEXPECTED,
@@ -97,7 +97,7 @@ export fn DllRegisterServer() STDAPI {
 }
 
 export fn DllUnregisterServer() STDAPI {
-    messageBox("WTFFFF", "Zig");
+
     registry.unregisterServer(GUID) catch |err| switch (err) {
         error.AccessDenied => return E_ACCESSDENIED,
         error.Unexpected => return E_UNEXPECTED,

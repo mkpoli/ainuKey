@@ -60,12 +60,11 @@ const fmt = std.fmt;
 
 pub fn registerProfile(
     comptime language: UTF16StringLiteral,
+    dll_path: UTF16String,
+    comptime description: UTF16StringLiteral,
+    comptime guid: Guid,
+    comptime guid_profile: Guid,
 ) !void {
-    // messageBoxW(language, unicode.utf8ToUtf16LeStringLiteral("registerProfile"));
-    const language_slice: []const u16 = language;
-    const language_str = try unicode.utf16LeToUtf8Alloc(std.heap.page_allocator, language_slice);
-    messageBox(language_str, "registerProfile");
-
     const locale_id = LocaleNameToLCID(language, 0);
     // convert [:0]const u16
 
@@ -78,7 +77,7 @@ pub fn registerProfile(
 
     // convert []u8 too
 
-    messageBox(locale_id_debug, "registerProfile");
+    messageBox(locale_id_debug, "registerProfile", .Info);
 
     var locale_info_buffer: [100:0]u16 = undefined;
     var locale_info_start: usize = 0;
@@ -89,7 +88,5 @@ pub fn registerProfile(
 
     const locale_info_debug = try fmt.bufPrint(all_together_slice, "LocaleInfo: {}", .{locale_info});
 
-    messageBox(locale_info_debug, "registerProfile");
+    messageBox(locale_info_debug, "registerProfile", .Info);
 }
-
-pub fn registerCategories() !void {}
