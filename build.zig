@@ -13,7 +13,8 @@ pub fn build(b: *Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
-
+    const win32 = b.addModule("win32", .{ .root_source_file = .{ .path = "lib/zigwin32/win32.zig" } });
+    dll.root_module.addImport("win32", win32);
     dll.addWin32ResourceFile(.{ .file = .{
         .path = "assets/resources.rc",
     } });
