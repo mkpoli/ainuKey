@@ -19,10 +19,12 @@ const InprocServer32: UTF16StringLiteral = to16("\\InprocServer32");
 const messageBox = @import("windows/debug.zig").messageBox;
 const messageBoxWZ = @import("windows/debug.zig").messageBoxWZ;
 
-pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16String, comptime guid: UTF16StringLiteral) !void {
+const toBraced = @import("windows/guid.zig").toBraced;
+
+pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16String, comptime guid: Guid) !void {
     messageBox("Registering server", "registerServer", .Info);
-    const clsid_key: UTF16StringLiteral = CLSID ++ guid;
-    const inproc_key = CLSID ++ guid ++ InprocServer32;
+    const clsid_key: UTF16StringLiteral = CLSID ++ toBraced(guid);
+    const inproc_key = CLSID ++ toBraced(guid) ++ InprocServer32;
 
     messageBoxWZ(clsid_key, &[_:0]u16{}, .Info);
     messageBoxWZ(inproc_key, &[_:0]u16{}, .Info);
@@ -35,8 +37,8 @@ pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16
     messageBox("Server registered", "registerServer", .Info);
 }
 
-pub fn unregisterServer(comptime guid: UTF16StringLiteral) !void {
-    const clsid_key = CLSID ++ guid;
+pub fn unregisterServer(comptime guid: Guid) !void {
+    const clsid_key = CLSID ++ toBraced(guid);
     try registry.deleteTree(HKEY_CLASSES_ROOT, clsid_key);
 }
 

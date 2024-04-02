@@ -29,12 +29,11 @@ const registry = @import("registry.zig");
 const messageBox = @import("windows/debug.zig").messageBox;
 const consts = @import("consts.zig");
 
-const GUID = consts.GUID; // TODO: Convert GUID_GUID to GUID
 const NAME = consts.NAME;
 const LANG = consts.LANG;
 const DESC = consts.DESC;
-const GUID_GUID = consts.GUID_GUID;
-const GUID_PROFILE_GUID = consts.GUID_PROFILE_GUID;
+const GUID_TEXT_SERVICE = consts.GUID_TEXT_SERVICE;
+const GUID_PROFILE = consts.GUID_PROFILE;
 
 const wintype = @import("windows/types.zig");
 const convertPathWToUTF8 = wintype.convertPathWToUTF8;
@@ -85,7 +84,7 @@ export fn DllGetClassObject() STDAPI {
 
 export fn DllRegisterServer() STDAPI {
     messageBox("DllRegisterServer", "Zig", .Info);
-    registry.registerServer(NAME, dll_file_name_w, GUID) catch |err| switch (err) {
+    registry.registerServer(NAME, dll_file_name_w, GUID_TEXT_SERVICE) catch |err| switch (err) {
         error.AccessDenied => return E_ACCESSDENIED,
         error.Unexpected => return E_UNEXPECTED,
     };
@@ -93,21 +92,21 @@ export fn DllRegisterServer() STDAPI {
         LANG,
         dll_file_name_w,
         DESC,
-        GUID_GUID,
-        GUID_PROFILE_GUID,
+        GUID_TEXT_SERVICE,
+        GUID_PROFILE,
     ) catch |err| switch (err) {
         // error.AccessDenied => return E_ACCESSDENIED,
         // error.Unexpected => return E_UNEXPECTED,
         else => return E_UNEXPECTED,
     };
-    registry.registerCategories(GUID_GUID) catch unreachable;
+    registry.registerCategories(GUID_TEXT_SERVICE) catch unreachable;
     return 0;
 }
 
 export fn DllUnregisterServer() STDAPI {
-    registry.unregisterProfile(GUID_PROFILE_GUID) catch unreachable;
-    registry.unregisterCategories(GUID_GUID) catch unreachable;
-    registry.unregisterServer(GUID) catch |err| switch (err) {
+    registry.unregisterProfile(GUID_PROFILE) catch unreachable;
+    registry.unregisterCategories(GUID_TEXT_SERVICE) catch unreachable;
+    registry.unregisterServer(GUID_TEXT_SERVICE) catch |err| switch (err) {
         error.AccessDenied => return E_ACCESSDENIED,
         error.Unexpected => return E_UNEXPECTED,
     };
