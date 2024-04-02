@@ -53,7 +53,6 @@ const ITfInputProcessorProfileMgr = profile.ITfInputProcessorProfileMgr;
 
 const Guid = win32.zig.Guid;
 pub fn registerProfile(
-    // comptime language: UTF16StringLiteral,
     dll_path: UTF16String,
     comptime description: UTF16StringLiteral,
     comptime guid: Guid,
@@ -89,7 +88,6 @@ pub fn registerProfile(
 }
 
 pub fn unregisterProfile(
-    // comptime language: UTF16StringLiteral,
     comptime guid: Guid,
     comptime guid_profile: Guid,
     comptime locale_id: u16,
@@ -99,27 +97,15 @@ pub fn unregisterProfile(
         return error.ProfileManagerCreationFailed;
     };
 
-    // const locale_id = LocaleNameToLCID(language, 0);
-
-    // const locale_id_u16: u16 = @intCast(locale_id);
-
     _ = ITfInputProcessorProfileMgr.ITfInputProcessorProfileMgr_UnregisterProfile(
         profile_manager,
         &guid,
-        // locale_id_u16,
         locale_id,
         &guid_profile,
         0,
     );
 
     messageBox("Profile unregistered!", "unregisterProfile", .Info);
-
-    // _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_RemoveLanguageProfile(
-    //     profiles,
-    //     &guid,
-    //     locale_id_u16,
-    //     &guid_profile,
-    // );
 }
 
 const category = @import("windows/category.zig");
