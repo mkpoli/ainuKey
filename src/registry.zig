@@ -42,25 +42,6 @@ pub fn unregisterServer(comptime guid: Guid) !void {
     try registry.deleteTree(HKEY_CLASSES_ROOT, clsid_key);
 }
 
-// const LocaleNameToLCID = windows.LocaleNameToLCID;
-
-// #[doc = "*Required features: `\"Win32_Globalization\"`*"]
-// #[inline]
-// pub unsafe fn LocaleNameToLCID<P0>(lpname: P0, dwflags: u32) -> u32
-// where
-//     P0: ::windows::core::IntoParam<::windows::core::PCWSTR>,
-// {
-//     ::windows_targets::link ! ( "kernel32.dll""system" fn LocaleNameToLCID ( lpname : ::windows::core::PCWSTR , dwflags : u32 ) -> u32 );
-//     LocaleNameToLCID(lpname.into_param().abi(), dwflags)
-// }
-
-// int GetLocaleInfoEx(
-//   [in, optional]  LPCWSTR lpLocaleName,
-//   [in]            LCTYPE  LCType,
-//   [out, optional] LPWSTR  lpLCData,
-//   [in]            int     cchData
-// );
-
 const win32 = @import("win32");
 
 const GetLocaleInfoEx = win32.globalization.GetLocaleInfoEx;
@@ -68,10 +49,11 @@ const LocaleNameToLCID = win32.globalization.LocaleNameToLCID;
 
 const fmt = std.fmt;
 
-const ITfInputProcessorProfiles = profile.ITfInputProcessorProfiles;
+const ITfInputProcessorProfileMgr = profile.ITfInputProcessorProfileMgr;
+
 const Guid = win32.zig.Guid;
 pub fn registerProfile(
-    comptime language: UTF16StringLiteral,
+    // comptime language: UTF16StringLiteral,
     dll_path: UTF16String,
     comptime description: UTF16StringLiteral,
     comptime guid: Guid,
@@ -85,8 +67,8 @@ pub fn registerProfile(
 
     const icon_path = dll_path;
 
-    _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_Register(
-        profiles,
+    _ = ITfInputProcessorProfileMgr.ITfInputProcessorProfileMgr_RegisterProfile(
+        profile_manager,
         &guid,
         locale_id,
         &guid_profile,
@@ -95,7 +77,13 @@ pub fn registerProfile(
         @ptrCast(icon_path.ptr),
         @intCast(icon_path.len),
         0,
+        std.mem.zeroes(?win32.ui.text_services.HKL),
+        0,
+        @intFromBool(true),
+        0,
     );
+
+    // TODO: Wrap this in a convenience function
 
     messageBox("Profile registered!", "registerProfile", .Info);
 }
@@ -106,15 +94,22 @@ pub fn unregisterProfile(
     comptime guid_profile: Guid,
     comptime locale_id: u16,
 ) !void {
-    const profiles = profile.createProfileManager() orelse unreachable;
+    const profile_manager = profile.createProfileManager() orelse {
+        messageBox("Failed to create profile manager", "unregisterProfile", .Error);
+        return error.ProfileManagerCreationFailed;
+    };
 
     // const locale_id = LocaleNameToLCID(language, 0);
 
     // const locale_id_u16: u16 = @intCast(locale_id);
 
-    _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_Unregister(
-        profiles,
+    _ = ITfInputProcessorProfileMgr.ITfInputProcessorProfileMgr_UnregisterProfile(
+        profile_manager,
         &guid,
+        // locale_id_u16,
+        locale_id,
+        &guid_profile,
+        0,
     );
 
     messageBox("Profile unregistered!", "unregisterProfile", .Info);
