@@ -27,7 +27,7 @@ const IUnknown = win32.system.com.IUnknown;
 
 const CLSCTX_INPROC_SERVER = com.CLSCTX_INPROC_SERVER;
 
-pub const ITfInputProcessorProfileMgr = ts.ITfInputProcessorProfileMgr;
+const ITfInputProcessorProfileMgr = ts.ITfInputProcessorProfileMgr;
 const IID_ITfInputProcessorProfileMgr = ts.IID_ITfInputProcessorProfileMgr;
 const CLSID_TF_InputProcessorProfiles = ts.CLSID_TF_InputProcessorProfiles;
 pub fn createProfileManager() ?*ITfInputProcessorProfileMgr {

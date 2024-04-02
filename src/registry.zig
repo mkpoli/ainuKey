@@ -44,12 +44,14 @@ pub fn unregisterServer(comptime guid: Guid) !void {
 
 const win32 = @import("win32");
 
+const ts = win32.ui.text_services;
+
 const GetLocaleInfoEx = win32.globalization.GetLocaleInfoEx;
 const LocaleNameToLCID = win32.globalization.LocaleNameToLCID;
 
 const fmt = std.fmt;
 
-const ITfInputProcessorProfileMgr = profile.ITfInputProcessorProfileMgr;
+const ITfInputProcessorProfileMgr = ts.ITfInputProcessorProfileMgr;
 
 const Guid = win32.zig.Guid;
 pub fn registerProfile(
@@ -108,19 +110,18 @@ pub fn unregisterProfile(
     messageBox("Profile unregistered!", "unregisterProfile", .Info);
 }
 
-const category = @import("windows/category.zig");
-
 const SUPPORTED_CATEGORIES: [7]Guid = .{
-    category.GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
-    category.GUID_TFCAT_TIPCAP_COMLESS,
-    category.GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
-    category.GUID_TFCAT_TIPCAP_UIELEMENTENABLED,
-    category.GUID_TFCAT_TIP_KEYBOARD,
-    category.GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT,
-    category.GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
+    ts.GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+    ts.GUID_TFCAT_TIPCAP_COMLESS,
+    ts.GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
+    ts.GUID_TFCAT_TIPCAP_UIELEMENTENABLED,
+    ts.GUID_TFCAT_TIP_KEYBOARD,
+    ts.GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT,
+    ts.GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
 };
 
-const ITfCategoryMgr = category.ITfCategoryMgr;
+const ITfCategoryMgr = ts.ITfCategoryMgr;
+const category = @import("windows/category.zig");
 
 pub fn registerCategories(
     comptime guid: Guid,
