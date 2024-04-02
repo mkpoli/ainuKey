@@ -7,7 +7,7 @@
 >
 > This software is still under development and not yet available for use.
 
-Iokere ipak / 進捗 / Progress : ![Progress](https://progress-bar.dev/5/?width=200)
+Iokere ipak / 進捗 / Progress : ![Progress](https://progress-bar.dev/10/?width=200)
 
 ## <span lang="ain">Nep kusu</span> / <span lang="ja">概要</span> / Overview 
 <p lang="ain">
