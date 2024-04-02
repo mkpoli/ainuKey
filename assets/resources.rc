@@ -1,2 +1,4 @@
 // Define an icon named "APP_ICON" that uses the icon file located at "../assets/icon.ico"
-APP_ICON ICON "../assets/icon.ico"
+IDI_ICON ICON "../assets/icon.ico"
+IDI_MODE_KANA ICON "../assets/mode_kana.ico"
+IDI_MODE_LATN ICON "../assets/mode_latn.ico"
