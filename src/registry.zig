@@ -61,30 +61,27 @@ pub fn registerProfile(
     comptime guid_profile: Guid,
     comptime locale_id: u16,
 ) !void {
-    const profile_manager = profile.createProfileManager() orelse {
-        messageBox("Failed to create profile manager", "registerProfile", .Error);
-        unreachable;
-    };
-
-    const icon_path = dll_path;
-
-    _ = ITfInputProcessorProfileMgr.ITfInputProcessorProfileMgr_RegisterProfile(
-        profile_manager,
-        &guid,
+    profile.registerProfile(
+        guid,
         locale_id,
-        &guid_profile,
-        @ptrCast(description.ptr),
-        @intCast(description.len),
-        @ptrCast(icon_path.ptr),
-        @intCast(icon_path.len),
+        guid_profile,
+        description,
+        dll_path,
         0,
         std.mem.zeroes(?win32.ui.text_services.HKL),
         0,
-        @intFromBool(true),
+        true,
         0,
-    );
-
-    // TODO: Wrap this in a convenience function
+    ) catch |err| switch (err) {
+        error.ProfileManagerCreationFailure => {
+            messageBox("Failed to create profile manager", "registerProfile", .Error);
+            return err;
+        },
+        error.ProfileRegistrationFailure => {
+            messageBox("Failed to register profile", "registerProfile", .Error);
+            return err;
+        },
+    };
 
     messageBox("Profile registered!", "registerProfile", .Info);
 }
@@ -94,18 +91,21 @@ pub fn unregisterProfile(
     comptime guid_profile: Guid,
     comptime locale_id: u16,
 ) !void {
-    const profile_manager = profile.createProfileManager() orelse {
-        messageBox("Failed to create profile manager", "unregisterProfile", .Error);
-        return error.ProfileManagerCreationFailed;
-    };
-
-    _ = ITfInputProcessorProfileMgr.ITfInputProcessorProfileMgr_UnregisterProfile(
-        profile_manager,
-        &guid,
+    profile.unregisterProfile(
+        guid,
         locale_id,
-        &guid_profile,
+        guid_profile,
         0,
-    );
+    ) catch |err| switch (err) {
+        error.ProfileManagerCreationFailure => {
+            messageBox("Failed to create profile manager", "unregisterProfile", .Error);
+            return err;
+        },
+        error.ProfileUnregistrationFailure => {
+            messageBox("Failed to unregister profile", "unregisterProfile", .Error);
+            return err;
+        },
+    };
 
     messageBox("Profile unregistered!", "unregisterProfile", .Info);
 }
