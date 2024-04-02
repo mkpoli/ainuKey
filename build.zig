@@ -29,6 +29,7 @@ pub fn build(b: *Build) void {
     });
 
     const run_lib_unit_tests = b.addRunArtifact(lib_unit_tests);
+    lib_unit_tests.root_module.addImport("win32", win32);
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_lib_unit_tests.step);
