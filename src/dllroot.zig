@@ -34,6 +34,7 @@ const LANG = consts.LANG;
 const DESC = consts.DESC;
 const GUID_TEXT_SERVICE = consts.GUID_TEXT_SERVICE;
 const GUID_PROFILE = consts.GUID_PROFILE;
+const LOCALE_ID = consts.LOCALE_ID;
 
 const wintype = @import("windows/types.zig");
 const convertPathWToUTF8 = wintype.convertPathWToUTF8;
@@ -89,12 +90,8 @@ export fn DllRegisterServer() STDAPI {
         error.Unexpected => return E_UNEXPECTED,
     };
     registry.registerProfile(
-        LANG,
-        dll_file_name_w,
-        DESC,
-        GUID_TEXT_SERVICE,
-        GUID_PROFILE,
-    ) catch |err| switch (err) {
+    // LANG,
+    dll_file_name_w, DESC, GUID_TEXT_SERVICE, GUID_PROFILE, LOCALE_ID) catch |err| switch (err) {
         // error.AccessDenied => return E_ACCESSDENIED,
         // error.Unexpected => return E_UNEXPECTED,
         else => return E_UNEXPECTED,
@@ -104,7 +101,7 @@ export fn DllRegisterServer() STDAPI {
 }
 
 export fn DllUnregisterServer() STDAPI {
-    registry.unregisterProfile(GUID_PROFILE) catch unreachable;
+    registry.unregisterProfile(GUID_TEXT_SERVICE, GUID_PROFILE, LOCALE_ID) catch unreachable;
     registry.unregisterCategories(GUID_TEXT_SERVICE) catch unreachable;
     registry.unregisterServer(GUID_TEXT_SERVICE) catch |err| switch (err) {
         error.AccessDenied => return E_ACCESSDENIED,

@@ -76,33 +76,9 @@ pub fn registerProfile(
     comptime description: UTF16StringLiteral,
     comptime guid: Guid,
     comptime guid_profile: Guid,
+    comptime locale_id: u16,
 ) !void {
-    const locale_id = LocaleNameToLCID(language, 0);
-    // convert [:0]const u16
-
-    var all_together: [100]u8 = undefined;
-    var start: usize = 0;
-    _ = &start;
-    const all_together_slice = all_together[start..];
-
-    const locale_id_debug = try fmt.bufPrint(all_together_slice, "LocaleID: {}", .{locale_id});
-
-    // convert []u8 too
-
-    messageBox(locale_id_debug, "registerProfile", .Info);
-
-    var locale_info_buffer: [100:0]u16 = undefined;
-    var locale_info_start: usize = 0;
-    _ = &locale_info_start;
-    const locale_info_slice = locale_info_buffer[locale_info_start..];
-
-    const locale_info = GetLocaleInfoEx(language, 0, locale_info_slice, @as(i32, @intCast(locale_info_buffer.len)));
-
-    const locale_info_debug = try fmt.bufPrint(all_together_slice, "LocaleInfo: {}", .{locale_info});
-
-    messageBox(locale_info_debug, "registerProfile", .Info);
-
-    const profiles = profile.createProfileManager() orelse {
+    const profile_manager = profile.createProfileManager() orelse {
         messageBox("Failed to create profile manager", "registerProfile", .Error);
         unreachable;
     };
@@ -112,14 +88,7 @@ pub fn registerProfile(
     _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_Register(
         profiles,
         &guid,
-    );
-
-    const locale_id_u16: u16 = @intCast(locale_id);
-
-    _ = ITfInputProcessorProfiles.ITfInputProcessorProfiles_AddLanguageProfile(
-        profiles,
-        &guid,
-        locale_id_u16,
+        locale_id,
         &guid_profile,
         @ptrCast(description.ptr),
         @intCast(description.len),
@@ -134,7 +103,8 @@ pub fn registerProfile(
 pub fn unregisterProfile(
     // comptime language: UTF16StringLiteral,
     comptime guid: Guid,
-    // comptime guid_profile: Guid,
+    comptime guid_profile: Guid,
+    comptime locale_id: u16,
 ) !void {
     const profiles = profile.createProfileManager() orelse unreachable;
 
