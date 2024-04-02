@@ -32,8 +32,6 @@ pub fn unregisterServer(comptime guid: UTF16StringLiteral) !void {
 const messageBox = @import("windows/debug.zig").messageBox;
 const messageBoxW = @import("windows/debug.zig").messageBoxW;
 
-// pub extern "shlwapi" fn SHDeleteKeyW(hKey: windows.HKEY, pszSubKey: ?windows.LPCWSTR) callconv(windows.WINAPI) windows.LSTATUS;
-
 // const LocaleNameToLCID = windows.LocaleNameToLCID;
 
 // #[doc = "*Required features: `\"Win32_Globalization\"`*"]
@@ -46,8 +44,6 @@ const messageBoxW = @import("windows/debug.zig").messageBoxW;
 //     LocaleNameToLCID(lpname.into_param().abi(), dwflags)
 // }
 
-extern "kernel32" fn LocaleNameToLCID(lpname: windows.LPCWSTR, dwflags: u32) callconv(windows.WINAPI) u32;
-
 // int GetLocaleInfoEx(
 //   [in, optional]  LPCWSTR lpLocaleName,
 //   [in]            LCTYPE  LCType,
@@ -55,7 +51,10 @@ extern "kernel32" fn LocaleNameToLCID(lpname: windows.LPCWSTR, dwflags: u32) cal
 //   [in]            int     cchData
 // );
 
-extern "kernel32" fn GetLocaleInfoEx(lpLocaleName: windows.LPCWSTR, LCType: u32, lpLCData: windows.LPWSTR, cchData: i32) callconv(windows.WINAPI) i32;
+const win32 = @import("win32");
+
+const GetLocaleInfoEx = win32.globalization.GetLocaleInfoEx;
+const LocaleNameToLCID = win32.globalization.LocaleNameToLCID;
 
 const fmt = std.fmt;
 
