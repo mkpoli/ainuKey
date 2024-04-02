@@ -39,3 +39,11 @@ pub fn messageBox(text: []const u8, caption: []const u8, box_type: MessageBoxTyp
         .Info => MB_ICONINFORMATION,
     });
 }
+
+pub fn messageBoxWZ(text: [:0]const u16, caption: [:0]const u16, box_type: MessageBoxType) void {
+    _ = MessageBoxW(null, text, caption, switch (box_type) {
+        .Error => MB_ICONERROR,
+        .Warning => MB_ICONWARNING,
+        .Info => MB_ICONINFORMATION,
+    });
+}

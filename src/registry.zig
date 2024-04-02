@@ -16,22 +16,29 @@ const to16 = unicode.utf8ToUtf16LeStringLiteral;
 const CLSID: UTF16StringLiteral = to16("CLSID\\");
 const InprocServer32: UTF16StringLiteral = to16("\\InprocServer32");
 
+const messageBox = @import("windows/debug.zig").messageBox;
+const messageBoxWZ = @import("windows/debug.zig").messageBoxWZ;
+
 pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16String, comptime guid: UTF16StringLiteral) !void {
-    const clsid_key = CLSID ++ guid;
+    messageBox("Registering server", "registerServer", .Info);
+    const clsid_key: UTF16StringLiteral = CLSID ++ guid;
     const inproc_key = CLSID ++ guid ++ InprocServer32;
+
+    messageBoxWZ(clsid_key, &[_:0]u16{}, .Info);
+    messageBoxWZ(inproc_key, &[_:0]u16{}, .Info);
     try registry.createAndSetStringValue(HKEY_CLASSES_ROOT, clsid_key, null, service_name);
     try registry.createAndSetStringValue(HKEY_CLASSES_ROOT, inproc_key, null, dll_path);
     const threading_model_name = std.unicode.utf8ToUtf16LeStringLiteral("ThreadingModel");
     const threading_model_value = std.unicode.utf8ToUtf16LeStringLiteral("Apartment");
     try registry.createAndSetStringValue(HKEY_CLASSES_ROOT, inproc_key, threading_model_name, threading_model_value);
+
+    messageBox("Server registered", "registerServer", .Info);
 }
 
 pub fn unregisterServer(comptime guid: UTF16StringLiteral) !void {
     const clsid_key = CLSID ++ guid;
     try registry.deleteTree(HKEY_CLASSES_ROOT, clsid_key);
 }
-
-const messageBox = @import("windows/debug.zig").messageBox;
 
 // const LocaleNameToLCID = windows.LocaleNameToLCID;
 
