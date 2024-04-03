@@ -75,14 +75,8 @@ pub fn DllMain(hinstDLL: HINSTANCE, fdwReason: DWORD, lpReserved: LPVOID) BOOL {
     return 1;
 }
 
-export fn DllCanUnloadNow() STDAPI {
-    // messageBox("DllCanUnloadNow", "Zig");
-    return 0;
-}
-
 const ClassFactory = @import("factory.zig").ClassFactory;
 const win32 = @import("win32");
-const S_OK = win32.foundation.S_OK;
 const E_OUTOFMEMORY = win32.foundation.E_OUTOFMEMORY;
 const E_NOINTERFACE = win32.foundation.E_NOINTERFACE;
 const CLASS_E_CLASSNOTAVAILABLE = win32.foundation.CLASS_E_CLASSNOTAVAILABLE;
@@ -134,6 +128,15 @@ export fn DllGetClassObject(
     };
     messageBox("created object of GUID_TEXT_SERVICE", "DllGetClassObject", .Info);
     return S_OK;
+}
+
+const S_OK = win32.foundation.S_OK;
+const S_FALSE = win32.foundation.S_FALSE;
+
+pub var ref_count: i32 = 0;
+pub var ref_lock: i32 = 0;
+export fn DllCanUnloadNow() STDAPI {
+    return if (ref_count > 0 and ref_lock > 0) S_FALSE else S_OK;
 }
 
 export fn DllRegisterServer() STDAPI {

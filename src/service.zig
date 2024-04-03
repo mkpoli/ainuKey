@@ -23,7 +23,8 @@ const ITfThreadMgr = win32.ui.text_services.ITfThreadMgr;
 
 const CLASS_E_NOAGGREGATION = win32.foundation.CLASS_E_NOAGGREGATION;
 
-pub var ref_count: i32 = 0;
+const dllroot = @import("dllroot.zig");
+
 const mBAP = @import("windows/debug.zig").messageBoxAllocPrint;
 pub const TextService = extern struct {
     const Self = @This();
@@ -67,7 +68,7 @@ pub const TextService = extern struct {
 
         if (self.ref == 0) {
             std.heap.c_allocator.destroy(self);
-            _ = @atomicRmw(i32, &ref_count, .Sub, 1, .monotonic);
+            _ = @atomicRmw(i32, &dllroot.ref_count, .Sub, 1, .monotonic);
             return 0;
         }
 
@@ -120,7 +121,7 @@ pub const TextService = extern struct {
 
         _ = obj.vtable.base.base.Release(@ptrCast(obj));
 
-        _ = @atomicRmw(i32, &ref_count, .Add, 1, .monotonic);
+        _ = @atomicRmw(i32, &dllroot.ref_count, .Add, 1, .monotonic);
 
         switch (result) {
             S_OK => {

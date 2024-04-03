@@ -21,8 +21,7 @@ const CLASS_E_NOAGGREGATION = win32.foundation.CLASS_E_NOAGGREGATION;
 
 const IID_ClassFactory = win32.system.com.IID_IClassFactory;
 
-pub var ref_count: i32 = 0;
-pub var ref_lock: i32 = 0;
+const dllroot = @import("dllroot.zig");
 
 const messageBox = @import("windows/debug.zig").messageBox;
 const mBAP = @import("windows/debug.zig").messageBoxAllocPrint;
@@ -71,7 +70,7 @@ pub const ClassFactory = extern struct {
 
         if (self.ref == 0) {
             global_allocator.destroy(self);
-            _ = @atomicRmw(i32, &ref_count, .Sub, 1, .monotonic);
+            _ = @atomicRmw(i32, &dllroot.ref_count, .Sub, 1, .monotonic);
             return 0;
         }
 
@@ -95,9 +94,9 @@ pub const ClassFactory = extern struct {
         _ = self;
 
         if (fLock != 0) {
-            _ = @atomicRmw(i32, &ref_lock, .Add, 1, .monotonic);
+            _ = @atomicRmw(i32, &dllroot.ref_lock, .Add, 1, .monotonic);
         } else {
-            _ = @atomicRmw(i32, &ref_lock, .Sub, 1, .monotonic);
+            _ = @atomicRmw(i32, &dllroot.ref_lock, .Sub, 1, .monotonic);
         }
         return S_OK;
     }
@@ -136,7 +135,7 @@ pub const ClassFactory = extern struct {
 
         _ = obj.vtable.base.base.Release(@ptrCast(obj));
 
-        _ = @atomicRmw(i32, &ref_count, .Add, 1, .monotonic);
+        _ = @atomicRmw(i32, &dllroot.ref_count, .Add, 1, .monotonic);
 
         switch (result) {
             S_OK => {
