@@ -11,7 +11,7 @@ const LPCWSTR = win.LPCWSTR;
 const HWND = win.HWND;
 const UINT = win.UINT;
 const WINAPI = win.WINAPI;
-const allocator = std.heap.page_allocator;
+const allocator = std.heap.c_allocator;
 
 const win32 = @import("win32");
 const MessageBoxW = win32.ui.windows_and_messaging.MessageBoxW;
@@ -46,4 +46,11 @@ pub fn messageBoxWZ(text: [:0]const u16, caption: [:0]const u16, box_type: Messa
         .Warning => MB_ICONWARNING,
         .Info => MB_ICONINFORMATION,
     });
+}
+
+pub inline fn messageBoxAllocPrint(template: []const u8, args: anytype, caption: []const u8, box_type: MessageBoxType) void {
+    const text = std.fmt.allocPrint(allocator, template, args) catch {
+        return messageBox("Failed to allocate memory for message box text", "Error", MessageBoxType.Error);
+    };
+    messageBox(text, caption, box_type);
 }
