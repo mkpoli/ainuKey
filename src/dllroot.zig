@@ -1,3 +1,5 @@
+const VERSION = @import("version").VERSION;
+
 const std = @import("std");
 const testing = std.testing;
 
@@ -84,7 +86,7 @@ export fn DllGetClassObject() STDAPI {
 }
 
 export fn DllRegisterServer() STDAPI {
-    messageBox("DllRegisterServer", "Zig", .Info);
+    messageBox("DllRegisterServer", "ainuKey " ++ VERSION, .Info);
     registry.registerServer(NAME, dll_file_name_w, GUID_TEXT_SERVICE) catch |err| switch (err) {
         error.AccessDenied => return E_ACCESSDENIED,
         error.Unexpected => return E_UNEXPECTED,
