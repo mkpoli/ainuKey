@@ -22,12 +22,9 @@ const messageBoxWZ = @import("windows/debug.zig").messageBoxWZ;
 const toBraced = @import("windows/guid.zig").toBraced;
 
 pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16String, comptime guid: Guid) !void {
-    messageBox("Registering server", "registerServer", .Info);
     const clsid_key: UTF16StringLiteral = CLSID ++ toBraced(guid);
     const inproc_key = CLSID ++ toBraced(guid) ++ InprocServer32;
-
-    messageBoxWZ(clsid_key, &[_:0]u16{}, .Info);
-    messageBoxWZ(inproc_key, &[_:0]u16{}, .Info);
+    // messageBoxWZ(clsid_key, &[_:0]u16{}, .Info);
     try registry.createAndSetStringValue(HKEY_CLASSES_ROOT, clsid_key, null, service_name);
     try registry.createAndSetStringValue(HKEY_CLASSES_ROOT, inproc_key, null, dll_path);
     const threading_model_name = std.unicode.utf8ToUtf16LeStringLiteral("ThreadingModel");
@@ -106,8 +103,6 @@ pub fn unregisterProfile(
             return err;
         },
     };
-
-    messageBox("Profile unregistered!", "unregisterProfile", .Info);
 }
 
 const SUPPORTED_CATEGORIES: [7]Guid = .{
@@ -136,7 +131,6 @@ pub fn registerCategories(
             return err;
         },
     };
-    messageBox("Categories registered", "registerCategories", .Info);
 }
 
 pub fn unregisterCategories(
@@ -152,5 +146,4 @@ pub fn unregisterCategories(
             return err;
         },
     };
-    messageBox("Categories unregistered", "unregisterCategories", .Info);
 }
