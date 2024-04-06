@@ -10,6 +10,8 @@ if (!(Test-Path $dir)) {
     Write-Host "Created directory $dir"
 }
 
+# DLL
+
 & "C:\Program Files (x86)\IObit\IObit Unlocker\IObitUnlocker.exe" /Delete /Advanced "$dir\ainuKey.dll"
 TimeOut 1
 taskkill /IM IObitUnlocker.exe
@@ -18,6 +20,17 @@ Write-Host "Deleted ainuKey.dll from $dir\ainuKey.dll"
 TimeOut 1
 Copy-Item -Path $PSScriptRoot\zig-out\lib\ainuKey.dll -Destination $dir -Force
 Write-Host "Copied ainuKey.dll to $dir\ainuKey.dll"
+
+# PDB
+
+& "C:\Program Files (x86)\IObit\IObit Unlocker\IObitUnlocker.exe" /Delete /Advanced "$dir\ainuKey.pdb"
+TimeOut 1
+taskkill /IM IObitUnlocker.exe
+Write-Host "Deleted ainuKey.pdb from $dir\ainuKey.pdb"
+
+TimeOut 1
+Copy-Item -Path $PSScriptRoot\zig-out\lib\ainuKey.pdb -Destination $dir -Force
+Write-Host "Copied ainuKey.pdb to $dir\ainuKey.pdb"
 
 regsvr32 "C:\Users\User\Desktop\ainuKey\ainuKey.dll" /s
 Write-Host "Registered ainuKey.dll";
