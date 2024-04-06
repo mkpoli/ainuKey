@@ -22,10 +22,6 @@ const DLL_THREAD_ATTACH: DWORD = 2;
 const DLL_THREAD_DETACH: DWORD = 3;
 const DLL_PROCESS_DETACH: DWORD = 0;
 
-const HRESULT = win.HRESULT;
-const E_ACCESSDENIED = win.E_ACCESSDENIED;
-const E_UNEXPECTED = win.E_UNEXPECTED;
-
 const registry = @import("registry.zig");
 
 const messageBox = @import("windows/debug.zig").messageBox;
@@ -77,8 +73,14 @@ pub fn DllMain(hinstDLL: HINSTANCE, fdwReason: DWORD, lpReserved: LPVOID) BOOL {
 
 const ClassFactory = @import("factory.zig").ClassFactory;
 const win32 = @import("win32");
-const E_OUTOFMEMORY = win32.foundation.E_OUTOFMEMORY;
+
+const HRESULT = win32.foundation.HRESULT;
+const E_ACCESSDENIED = win32.foundation.E_ACCESSDENIED;
 const E_NOINTERFACE = win32.foundation.E_NOINTERFACE;
+const E_OUTOFMEMORY = win32.foundation.E_OUTOFMEMORY;
+const E_POINTER = win32.foundation.E_POINTER;
+const E_UNEXPECTED = win32.foundation.E_UNEXPECTED;
+
 const CLASS_E_CLASSNOTAVAILABLE = win32.foundation.CLASS_E_CLASSNOTAVAILABLE;
 const Guid = win32.zig.Guid;
 const TextService = @import("service.zig").TextService;
@@ -94,10 +96,6 @@ export fn DllGetClassObject(
     ppv: ?*?*anyopaque,
 ) STDAPI {
     messageBox("DllGetClassObject", "ainuKey " ++ VERSION, .Info);
-    // messageBox(&toBraced(rclsid.*), "rclsid", .Info);
-    // messageBox(&toBraced(riid.*), "riid", .Info);
-
-    // const GUID_TEXT_SERVICE_PTR: *const Guid = &GUID_TEXT_SERVICE;
 
     if (!std.meta.eql(rclsid.Bytes, GUID_TEXT_SERVICE.Bytes)) {
         mBAP("Unknown CLSID: {s}", .{toBraced(rclsid.*)}, "DllGetClassObject", .Error);
@@ -111,7 +109,6 @@ export fn DllGetClassObject(
         return E_NOINTERFACE;
     }
 
-    // messageBox("got object of GUID_TEXT_SERVICE", "DllGetClassObject", .Info);
     ClassFactory.create(std.heap.c_allocator, TextService.create, riid, ppv) catch |e| switch (e) {
         error.NoInterface => {
             mBAP("E_NOINTERFACE: Interface with GUID {s} is not supported!", .{toBraced(riid.*)}, "ClassFactory.create()", .Error);
@@ -119,6 +116,7 @@ export fn DllGetClassObject(
         },
         error.NullPointer => {
             messageBox("E_POINTER: ppv is null", "ClassFactory.create()", .Error);
+            return E_POINTER;
         },
         error.OutOfMemory => {
             messageBox("E_OUTOFMEMORY: Out of memory", "ClassFactory.create()", .Error);
@@ -126,9 +124,10 @@ export fn DllGetClassObject(
         },
         else => {
             messageBox("Unknown error", "ClassFactory.create()", .Error);
+            return E_UNEXPECTED;
         },
     };
-    messageBox("created object of GUID_TEXT_SERVICE", "DllGetClassObject", .Info);
+    // messageBox("created object of GUID_TEXT_SERVICE", "DllGetClassObject", .Info);
     return S_OK;
 }
 
