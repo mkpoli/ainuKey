@@ -101,11 +101,13 @@ export fn DllGetClassObject(
 
     if (!std.meta.eql(rclsid.Bytes, GUID_TEXT_SERVICE.Bytes)) {
         mBAP("Unknown CLSID: {s}", .{toBraced(rclsid.*)}, "DllGetClassObject", .Error);
+        ppv.?.* = null;
         return CLASS_E_CLASSNOTAVAILABLE;
     }
 
     if (!std.meta.eql(riid.Bytes, IID_IClassFactory.Bytes)) {
         mBAP("Unknown IID: {s}", .{toBraced(riid.*)}, "DllGetClassObject", .Error);
+        ppv.?.* = null;
         return E_NOINTERFACE;
     }
 
@@ -140,28 +142,53 @@ export fn DllCanUnloadNow() STDAPI {
 }
 
 export fn DllRegisterServer() STDAPI {
-    messageBox("DllRegisterServer", "ainuKey " ++ VERSION, .Info);
     registry.registerServer(NAME, dll_file_name_w, GUID_TEXT_SERVICE) catch |err| switch (err) {
-        error.AccessDenied => return E_ACCESSDENIED,
-        error.Unexpected => return E_UNEXPECTED,
+        error.AccessDenied => {
+            messageBox("Access Denied: Use elevated privileges to register the server.", "ainuKey.dll::DllRegisterServer()", .Error);
+            return E_ACCESSDENIED;
+        },
+        error.Unexpected => {
+            messageBox("Unexpected error: Failed to register the server.", "ainuKey.dll::DllRegisterServer()", .Error);
+            return E_UNEXPECTED;
+        },
     };
-    registry.registerProfile(
-    // LANG,
-    dll_file_name_w, DESC, GUID_TEXT_SERVICE, GUID_PROFILE, LOCALE_ID) catch |err| switch (err) {
-        // error.AccessDenied => return E_ACCESSDENIED,
-        // error.Unexpected => return E_UNEXPECTED,
-        else => return E_UNEXPECTED,
+    registry.registerProfile(dll_file_name_w, DESC, GUID_TEXT_SERVICE, GUID_PROFILE, LOCALE_ID) catch |err| switch (err) {
+        error.Unexpected => {
+            messageBox("Unexpected error: Failed to register the profile.", "ainuKey.dll::DllRegisterServer()", .Error);
+            return E_UNEXPECTED;
+        },
     };
-    registry.registerCategories(GUID_TEXT_SERVICE) catch unreachable;
-    return 0;
+    registry.registerCategories(GUID_TEXT_SERVICE) catch |err| switch (err) {
+        error.Unexpected => {
+            messageBox("Unexpected error: Failed to register the categories.", "ainuKey.dll::DllRegisterServer()", .Error);
+            return E_UNEXPECTED;
+        },
+    };
+    return S_OK;
 }
 
 export fn DllUnregisterServer() STDAPI {
-    registry.unregisterProfile(GUID_TEXT_SERVICE, GUID_PROFILE, LOCALE_ID) catch unreachable;
-    registry.unregisterCategories(GUID_TEXT_SERVICE) catch unreachable;
-    registry.unregisterServer(GUID_TEXT_SERVICE) catch |err| switch (err) {
-        error.AccessDenied => return E_ACCESSDENIED,
-        error.Unexpected => return E_UNEXPECTED,
+    registry.unregisterProfile(GUID_TEXT_SERVICE, GUID_PROFILE, LOCALE_ID) catch |err| switch (err) {
+        error.Unexpected => {
+            messageBox("Unexpected error: Failed to unregister the profile.", "ainuKey.dll::DllUnregisterServer()", .Error);
+            return E_UNEXPECTED;
+        },
     };
-    return 0;
+    registry.unregisterCategories(GUID_TEXT_SERVICE) catch |err| switch (err) {
+        error.Unexpected => {
+            messageBox("Unexpected error: Failed to unregister the categories.", "ainuKey.dll::DllUnregisterServer()", .Error);
+            return E_UNEXPECTED;
+        },
+    };
+    registry.unregisterServer(GUID_TEXT_SERVICE) catch |err| switch (err) {
+        error.AccessDenied => {
+            messageBox("Access Denied: Use elevated privileges to unregister the server.", "ainuKey.dll::DllUnregisterServer()", .Error);
+            return E_ACCESSDENIED;
+        },
+        error.Unexpected => {
+            messageBox("Unexpected error: Failed to unregister the server.", "ainuKey.dll::DllUnregisterServer()", .Error);
+            return E_UNEXPECTED;
+        },
+    };
+    return S_OK;
 }

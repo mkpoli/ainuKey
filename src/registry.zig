@@ -21,7 +21,7 @@ const messageBoxWZ = @import("windows/debug.zig").messageBoxWZ;
 
 const toBraced = @import("windows/guid.zig").toBraced;
 
-pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16String, comptime guid: Guid) !void {
+pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16String, comptime guid: Guid) error{ AccessDenied, Unexpected }!void {
     const clsid_key: UTF16StringLiteral = CLSID ++ toBraced(guid);
     const inproc_key = CLSID ++ toBraced(guid) ++ InprocServer32;
     // messageBoxWZ(clsid_key, &[_:0]u16{}, .Info);
@@ -30,11 +30,9 @@ pub fn registerServer(comptime service_name: UTF16StringLiteral, dll_path: UTF16
     const threading_model_name = std.unicode.utf8ToUtf16LeStringLiteral("ThreadingModel");
     const threading_model_value = std.unicode.utf8ToUtf16LeStringLiteral("Apartment");
     try registry.createAndSetStringValue(HKEY_CLASSES_ROOT, inproc_key, threading_model_name, threading_model_value);
-
-    messageBox("Server registered", "registerServer", .Info);
 }
 
-pub fn unregisterServer(comptime guid: Guid) !void {
+pub fn unregisterServer(comptime guid: Guid) error{ AccessDenied, Unexpected }!void {
     const clsid_key = CLSID ++ toBraced(guid);
     try registry.deleteTree(HKEY_CLASSES_ROOT, clsid_key);
 }
@@ -57,7 +55,7 @@ pub fn registerProfile(
     comptime guid: Guid,
     comptime guid_profile: Guid,
     comptime locale_id: u16,
-) !void {
+) error{Unexpected}!void {
     profile.registerProfile(
         guid,
         locale_id,
@@ -72,22 +70,20 @@ pub fn registerProfile(
     ) catch |err| switch (err) {
         error.ProfileManagerCreationFailure => {
             messageBox("Failed to create profile manager", "registerProfile", .Error);
-            return err;
+            return error.Unexpected;
         },
         error.ProfileRegistrationFailure => {
             messageBox("Failed to register profile", "registerProfile", .Error);
-            return err;
+            return error.Unexpected;
         },
     };
-
-    messageBox("Profile registered!", "registerProfile", .Info);
 }
 
 pub fn unregisterProfile(
     comptime guid: Guid,
     comptime guid_profile: Guid,
     comptime locale_id: u16,
-) !void {
+) error{Unexpected}!void {
     profile.unregisterProfile(
         guid,
         locale_id,
@@ -96,11 +92,11 @@ pub fn unregisterProfile(
     ) catch |err| switch (err) {
         error.ProfileManagerCreationFailure => {
             messageBox("Failed to create profile manager", "unregisterProfile", .Error);
-            return err;
+            return error.Unexpected;
         },
         error.ProfileUnregistrationFailure => {
             messageBox("Failed to unregister profile", "unregisterProfile", .Error);
-            return err;
+            return error.Unexpected;
         },
     };
 }
@@ -120,30 +116,30 @@ const category = @import("windows/category.zig");
 
 pub fn registerCategories(
     comptime guid: Guid,
-) !void {
+) error{Unexpected}!void {
     category.registerCategories(guid, &SUPPORTED_CATEGORIES) catch |err| switch (err) {
         error.CategoryManagerCreationFailure => {
             messageBox("Failed to create category manager", "registerCategories", .Error);
-            return err;
+            return error.Unexpected;
         },
         error.CategoryRegistrationFailure => {
             messageBox("Failed to register categories", "registerCategories", .Error);
-            return err;
+            return error.Unexpected;
         },
     };
 }
 
 pub fn unregisterCategories(
     comptime guid: Guid,
-) !void {
+) error{Unexpected}!void {
     category.unregisterCategories(guid, &SUPPORTED_CATEGORIES) catch |err| switch (err) {
         error.CategoryManagerCreationFailure => {
             messageBox("Failed to create category manager", "unregisterCategories", .Error);
-            return err;
+            return error.Unexpected;
         },
         error.CategoryUnregistrationFailure => {
             messageBox("Failed to unregister categories", "unregisterCategories", .Error);
-            return err;
+            return error.Unexpected;
         },
     };
 }
