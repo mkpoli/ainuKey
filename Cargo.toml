@@ -1,0 +1,59 @@
+[package]
+name = "ainukey"
+version = "0.1.0"
+edition = "2021"
+description = "ainuKey — Ainu language IME for Windows (TSF)"
+authors = ["mkpoli <mkpoli@mkpo.li>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/mkpoli/ainuKey"
+publish = false
+
+[lib]
+name = "ainukey"
+crate-type = ["cdylib"]
+
+[dependencies]
+ainconv = "0.2.0"
+
+[dependencies.windows-core]
+version = "0.60"
+
+[dependencies.windows]
+version = "0.60"
+features = [
+    # --- COM authoring macro ---
+    # NOTE: in windows 0.60 the `#[implement]` macro is re-exported unconditionally
+    # from `windows::core` (via windows-implement); there is no `implement` feature
+    # on the `windows` crate, so it is NOT listed here.
+
+    # --- Core ABI / types ---
+    "Win32_Foundation",                  # HRESULT, BOOL, HMODULE, WPARAM, LPARAM, S_OK, E_FAIL,
+                                         #   CLASS_E_CLASSNOTAVAILABLE, E_NOINTERFACE, E_POINTER, S_FALSE
+    "Win32_System_Com",                  # IClassFactory(+_Impl), CoCreateInstance, CLSCTX_INPROC_SERVER, IUnknown
+    "Win32_System_Ole",                  # SELFREG_E_CLASS (registration-failure HRESULT)
+    "Win32_System_Variant",              # VARIANT (display-attribute property SetValue)
+
+    # --- TSF ---
+    "Win32_UI_TextServices",             # ALL ITf* interfaces + _Impl traits, TF_* structs/consts,
+                                         #   CLSID_TF_InputProcessorProfiles, CLSID_TF_CategoryMgr,
+                                         #   GUID_TFCAT_* category GUIDs, GUID_PROP_ATTRIBUTE
+
+    # --- Keyboard input decode ---
+    "Win32_UI_Input_KeyboardAndMouse",   # GetKeyboardState, ToUnicode, VK_* virtual-key codes
+    "Win32_UI_WindowsAndMessaging",      # (vkey constants / message plumbing reachable here too)
+
+    # --- Localization (profile langid) ---
+    "Win32_Globalization",               # LocaleNameToLCID (resolve "ja-JP" for RegisterProfile langid)
+
+    # --- Registration ---
+    "Win32_System_Registry",             # HKEY, RegCreateKeyExW, RegSetValueExW, RegDeleteTreeW, HKEY_CLASSES_ROOT
+    "Win32_Security",                    # SECURITY_ATTRIBUTES param of RegCreateKeyExW (feature-gates the fn)
+    "Win32_System_LibraryLoader",        # GetModuleFileNameW (resolve the DLL's own path for InProcServer32 + icon)
+
+    # --- Module instance handle ---
+    "Win32_System_SystemServices",       # DLL_PROCESS_ATTACH / DLL_PROCESS_DETACH reason constants for DllMain
+]
+
+[build-dependencies]
+embed-resource = "3"
