@@ -5,7 +5,6 @@
 
 use windows::core::{GUID, PCWSTR};
 use windows::Win32::Foundation::{ERROR_SUCCESS, E_FAIL, MAX_PATH};
-use windows::Win32::Globalization::LocaleNameToLCID;
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER,
     COINIT_APARTMENTTHREADED,
@@ -24,9 +23,7 @@ use windows::Win32::UI::TextServices::{
 };
 
 use crate::dll_instance;
-use crate::guids::{
-    DISPLAY_DESCRIPTION, GUID_PROFILE, GUID_TEXT_SERVICE, PROFILE_LOCALE, SERVICE_NAME,
-};
+use crate::guids::{DISPLAY_DESCRIPTION, GUID_PROFILE, GUID_TEXT_SERVICE, SERVICE_NAME};
 
 const CATEGORIES: [GUID; 7] = [
     GUID_TFCAT_TIP_KEYBOARD,
@@ -37,6 +34,18 @@ const CATEGORIES: [GUID; 7] = [
     GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT,
     GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
 ];
+
+/// The four desktop "keyboard transient" LCIDs.
+///
+/// Ainu (BCP-47 `ain`) has no assigned Windows LCID, so its input profile is
+/// registered against all four transient slots. Once a user adds `ain` to their
+/// language list, Windows assigns it one of these LCIDs; registering all four
+/// up front (in the machine-wide `DllRegisterServer`) means whichever slot it
+/// lands in already has a live profile. The per-user *enable* step
+/// (`Set-WinUserLanguageList` + `InstallLayoutOrTip`) is done by the installer,
+/// not here. See [MS-LCID] "Locale Names without LCIDs" and Keyman's
+/// `RegisterTransientTips`.
+const TRANSIENT_LANGIDS: [u16; 4] = [0x2000, 0x2400, 0x2800, 0x2C00];
 
 /// Resolve the DLL's own absolute path, NUL-terminated, as UTF-16.
 fn module_path_utf16() -> windows::core::Result<Vec<u16>> {
@@ -183,25 +192,28 @@ fn register_profile() -> windows::core::Result<()> {
     let profiles: ITfInputProcessorProfileMgr =
         unsafe { CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)? };
 
-    // SAFETY: PROFILE_LOCALE is a valid wide string literal.
-    let langid = unsafe { LocaleNameToLCID(PROFILE_LOCALE, 0) } as u16;
     let name = wide_pcwstr_owned(DISPLAY_DESCRIPTION); // NUL-terminated
     let dll_path = module_path_utf16()?; // also the icon source (index 0 -> IDI_ICON)
 
-    // SAFETY: all pointers/slices valid for the call's duration.
-    unsafe {
-        profiles.RegisterProfile(
-            &GUID_TEXT_SERVICE,
-            langid,
-            &GUID_PROFILE,
-            &name[..name.len() - 1], // display name, without the trailing NUL
-            &dll_path,               // icon file = the DLL itself
-            0,                       // icon index -> IDI_ICON
-            HKL(std::ptr::null_mut()),
-            0,
-            true, // enabled by default
-            0,
-        )?;
+    // Register the profile against every transient LCID Ainu might be assigned.
+    // Not enabled by default — the installer enables the live one per user via
+    // InstallLayoutOrTip.
+    for &langid in &TRANSIENT_LANGIDS {
+        // SAFETY: all pointers/slices valid for the call's duration.
+        unsafe {
+            profiles.RegisterProfile(
+                &GUID_TEXT_SERVICE,
+                langid,
+                &GUID_PROFILE,
+                &name[..name.len() - 1], // display name, without the trailing NUL
+                &dll_path,               // icon file = the DLL itself
+                0,                       // icon index -> IDI_ICON
+                HKL(std::ptr::null_mut()),
+                0,
+                false, // enabled per-user via InstallLayoutOrTip, not by default
+                0,
+            )?;
+        }
     }
     Ok(())
 }
@@ -210,10 +222,11 @@ fn unregister_profile() -> windows::core::Result<()> {
     // SAFETY: standard in-proc COM creation.
     let profiles: ITfInputProcessorProfileMgr =
         unsafe { CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)? };
-    // SAFETY: profiles valid; GUID pointers valid.
-    let langid = unsafe { LocaleNameToLCID(PROFILE_LOCALE, 0) } as u16;
-    unsafe {
-        profiles.UnregisterProfile(&GUID_TEXT_SERVICE, langid, &GUID_PROFILE, 0)?;
+    for &langid in &TRANSIENT_LANGIDS {
+        // SAFETY: profiles valid; GUID pointers valid. Best-effort per slot.
+        unsafe {
+            let _ = profiles.UnregisterProfile(&GUID_TEXT_SERVICE, langid, &GUID_PROFILE, 0);
+        }
     }
     Ok(())
 }
