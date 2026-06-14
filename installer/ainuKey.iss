@@ -38,9 +38,25 @@ UninstallDisplayIcon={app}\ainukey.dll
 ; `regserver` calls DllRegisterServer on install and DllUnregisterServer on
 ; uninstall. In 64-bit install mode the 64-bit DLL is registered correctly.
 Source: "..\target\x86_64-pc-windows-msvc\release\ainukey.dll"; DestDir: "{app}"; Flags: ignoreversion regserver
+Source: "enable-user.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
+[Run]
+; Per-user enable: add Ainu to the language list + InstallLayoutOrTip. Runs as
+; the original (non-elevated) user so it targets the right user's profile.
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\enable-user.ps1"""; \
+  Flags: runasoriginaluser runhidden; \
+  StatusMsg: "Enabling Ainu input for the current user..."
+
+[UninstallRun]
+; Disable per-user before the DLL is unregistered (regserver auto-unregisters).
+Filename: "powershell.exe"; \
+  Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\enable-user.ps1"" -Uninstall"; \
+  Flags: runasoriginaluser runhidden; \
+  RunOnceId: "DisableAinu"
+
 [Messages]
 ; Shown on the final page.
-FinishedLabel=ainuKey was installed. Switch input method (Win+Space) to "ainuKey" and type romaji. If it does not appear, add Japanese under Settings > Time & language > Language.
+FinishedLabel=ainuKey was installed and Ainu was added to your languages. Switch input (Win+Space) to Ainu and type romaji.
