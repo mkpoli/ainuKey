@@ -3,7 +3,7 @@
 //! (`ITfCategoryMgr`). `register_all` / `unregister_all` wrap the three, with
 //! COM initialized for the manager CoCreates.
 
-use windows::core::{PCWSTR, GUID};
+use windows::core::{GUID, PCWSTR};
 use windows::Win32::Foundation::{ERROR_SUCCESS, E_FAIL, MAX_PATH};
 use windows::Win32::Globalization::LocaleNameToLCID;
 use windows::Win32::System::Com::{
@@ -17,8 +17,8 @@ use windows::Win32::System::Registry::{
 };
 use windows::Win32::UI::Input::KeyboardAndMouse::HKL;
 use windows::Win32::UI::TextServices::{
-    ITfCategoryMgr, ITfInputProcessorProfileMgr, CLSID_TF_CategoryMgr,
-    CLSID_TF_InputProcessorProfiles, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, GUID_TFCAT_TIPCAP_COMLESS,
+    CLSID_TF_CategoryMgr, CLSID_TF_InputProcessorProfiles, ITfCategoryMgr,
+    ITfInputProcessorProfileMgr, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, GUID_TFCAT_TIPCAP_COMLESS,
     GUID_TFCAT_TIPCAP_IMMERSIVESUPPORT, GUID_TFCAT_TIPCAP_INPUTMODECOMPARTMENT,
     GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT, GUID_TFCAT_TIPCAP_UIELEMENTENABLED, GUID_TFCAT_TIP_KEYBOARD,
 };
@@ -57,17 +57,7 @@ fn guid_braced(guid: &GUID) -> String {
     let d4 = guid.data4;
     format!(
         "{{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}",
-        guid.data1,
-        guid.data2,
-        guid.data3,
-        d4[0],
-        d4[1],
-        d4[2],
-        d4[3],
-        d4[4],
-        d4[5],
-        d4[6],
-        d4[7]
+        guid.data1, guid.data2, guid.data3, d4[0], d4[1], d4[2], d4[3], d4[4], d4[5], d4[6], d4[7]
     )
 }
 
@@ -118,9 +108,7 @@ impl RegKey {
             None => PCWSTR::null(),
         };
         // SAFETY: handle valid; data slice valid for its length.
-        let err = unsafe {
-            RegSetValueExW(self.0, name_pcwstr, Some(0), REG_SZ, Some(&data))
-        };
+        let err = unsafe { RegSetValueExW(self.0, name_pcwstr, Some(0), REG_SZ, Some(&data)) };
         if err != ERROR_SUCCESS {
             return Err(E_FAIL.into());
         }

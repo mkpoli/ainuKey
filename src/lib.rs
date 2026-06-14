@@ -66,6 +66,11 @@ pub extern "system" fn DllMain(hinst: HMODULE, reason: u32, _reserved: *mut c_vo
     BOOL(1)
 }
 
+/// Standard COM in-proc-server class-object entry point.
+///
+/// # Safety
+/// Called by the COM runtime with `rclsid` and `riid` pointing to valid GUIDs
+/// and `ppv` to a valid `*mut *mut c_void` out-parameter.
 #[no_mangle]
 pub unsafe extern "system" fn DllGetClassObject(
     rclsid: *const GUID,
@@ -88,6 +93,10 @@ pub unsafe extern "system" fn DllGetClassObject(
     }
 }
 
+/// Reports whether the DLL can be unloaded (no live objects or locks).
+///
+/// # Safety
+/// COM entry point invoked by the runtime; only reads the module lock count.
 #[no_mangle]
 pub unsafe extern "system" fn DllCanUnloadNow() -> HRESULT {
     if LOCK_COUNT.load(Ordering::SeqCst) <= 0 {
@@ -97,6 +106,11 @@ pub unsafe extern "system" fn DllCanUnloadNow() -> HRESULT {
     }
 }
 
+/// Registers the COM server, the TSF profile, and the TSF categories.
+///
+/// # Safety
+/// COM / `regsvr32` entry point; must run elevated. Performs registry and TSF
+/// registration with process-global side effects.
 #[no_mangle]
 pub unsafe extern "system" fn DllRegisterServer() -> HRESULT {
     match registry::register_all() {
@@ -108,6 +122,10 @@ pub unsafe extern "system" fn DllRegisterServer() -> HRESULT {
     }
 }
 
+/// Reverses [`DllRegisterServer`].
+///
+/// # Safety
+/// COM / `regsvr32` entry point; must run elevated.
 #[no_mangle]
 pub unsafe extern "system" fn DllUnregisterServer() -> HRESULT {
     let _ = registry::unregister_all();
