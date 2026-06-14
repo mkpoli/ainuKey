@@ -5,3 +5,8 @@
 /out/
 /ainuKey-*-x86_64-windows-msvc.zip
 /ainuKey-*-x86_64-windows-setup.exe
+
+# Generated, corpus-derived suggestion table — NOT committed (rights-restricted
+# source corpus; see data/README.md). build.rs uses it if present, else an empty
+# table. Regenerate locally with `uv run tools/build_ngrams.py`.
+/data/ngrams.bin
