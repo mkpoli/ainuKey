@@ -36,8 +36,10 @@ pub struct TextServiceState {
     pub candidate_window: Option<CandidateWindow>,
     /// Candidate list for the current composition.
     pub candidates: CandidateList,
-    /// The last word we committed (Latin), used as next-word prediction context.
+    /// The last word we committed (Latin) — the bigram prediction context.
     pub last_committed: Option<String>,
+    /// The word before that — with `last_committed`, the trigram context.
+    pub prev_committed: Option<String>,
 }
 
 impl Default for TextServiceState {
@@ -53,6 +55,7 @@ impl Default for TextServiceState {
             candidate_window: None,
             candidates: CandidateList::default(),
             last_committed: None,
+            prev_committed: None,
         }
     }
 }

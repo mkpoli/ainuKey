@@ -31,11 +31,18 @@ impl CandidateList {
     /// [`crate::romaji::normalize`]). The word itself is candidate 0, followed by
     /// frequency-ranked completions (e.g. `kam` → `kam`, `kamuy`, `kamui`, …).
     ///
-    /// When `prev` (the previously committed word) is given, completions that are
-    /// likely to *follow* it are surfaced first — i.e. the bigram next-word model
-    /// re-ranks the completions for context-aware prediction. Empty `word` yields
-    /// an empty list.
-    pub fn build(prev: Option<&str>, word: &str, suggest: &Suggestions, max: usize) -> Self {
+    /// When the preceding committed words (`prev2`, `prev1`) are given,
+    /// completions likely to *follow* them are surfaced first — the trigram model
+    /// (`prev2 prev1 → next`, backing off to the bigram `prev1 → next`) re-ranks
+    /// the completions for context-aware prediction. Empty `word` yields an empty
+    /// list.
+    pub fn build(
+        prev2: Option<&str>,
+        prev1: Option<&str>,
+        word: &str,
+        suggest: &Suggestions,
+        max: usize,
+    ) -> Self {
         if word.is_empty() {
             return Self::default();
         }
@@ -49,10 +56,11 @@ impl CandidateList {
             .map(|(w, c)| (w.to_string(), c))
             .collect();
 
-        // Context boost: prefer completions the bigram model predicts after `prev`.
-        if let Some(prev) = prev {
+        // Context boost: prefer completions the trigram/bigram model predicts
+        // after (prev2, prev1).
+        if let Some(prev1) = prev1 {
             let boost: std::collections::HashMap<&str, u32> = suggest
-                .predict(None, prev)
+                .predict(prev2, prev1)
                 .iter()
                 .map(|(w, c)| (w.as_str(), *c))
                 .collect();
@@ -157,7 +165,14 @@ mod tests {
         b.push(5);
         b.extend(b"kamui");
         b.extend(500u32.to_le_bytes());
-        b.extend(0u32.to_le_bytes()); // no trigrams
+        // trigrams: one context "a ku" -> [("kamuy", 900)] (overrides the bigram).
+        b.extend(1u32.to_le_bytes());
+        b.push(4);
+        b.extend(b"a ku");
+        b.push(1);
+        b.push(5);
+        b.extend(b"kamuy");
+        b.extend(900u32.to_le_bytes());
         Suggestions::load(&b).expect("synth")
     }
 
@@ -168,7 +183,7 @@ mod tests {
     #[test]
     fn typed_word_is_first_then_completions() {
         let s = suggest();
-        let c = CandidateList::build(None, "kam", &s, 8);
+        let c = CandidateList::build(None, None, "kam", &s, 8);
         assert_eq!(c.items()[0], "kam"); // the typed word
         assert!(c.items().contains(&"kamuy".to_string()));
         assert!(c.items().contains(&"kamui".to_string()));
@@ -180,18 +195,29 @@ mod tests {
     fn context_reranks_completions() {
         let s = suggest();
         // No context → frequency order: kamuy (1000) before kamui (400).
-        let plain = CandidateList::build(None, "kam", &s, 8);
+        let plain = CandidateList::build(None, None, "kam", &s, 8);
         assert!(pos(&plain, "kamuy") < pos(&plain, "kamui"));
-        // prev = "ku" predicts kamui → kamui surfaces before kamuy.
-        let ctx = CandidateList::build(Some("ku"), "kam", &s, 8);
+        // prev1 = "ku" (bigram) predicts kamui → kamui surfaces before kamuy.
+        let ctx = CandidateList::build(None, Some("ku"), "kam", &s, 8);
         assert!(pos(&ctx, "kamui") < pos(&ctx, "kamuy"));
+    }
+
+    #[test]
+    fn trigram_context_overrides_bigram() {
+        let s = suggest();
+        // Bigram "ku" → kamui, but trigram "a ku" → kamuy. With both prevs the
+        // trigram wins: kamuy surfaces before kamui.
+        let bi = CandidateList::build(None, Some("ku"), "kam", &s, 8);
+        assert!(pos(&bi, "kamui") < pos(&bi, "kamuy"));
+        let tri = CandidateList::build(Some("a"), Some("ku"), "kam", &s, 8);
+        assert!(pos(&tri, "kamuy") < pos(&tri, "kamui"));
     }
 
     #[test]
     fn dedups_typed_word_against_completion() {
         let s = suggest();
         // 'kamuy' is both the typed word and a known unigram; it appears once.
-        let c = CandidateList::build(None, "kamuy", &s, 8);
+        let c = CandidateList::build(None, None, "kamuy", &s, 8);
         assert_eq!(c.items().iter().filter(|w| *w == "kamuy").count(), 1);
         assert_eq!(c.items()[0], "kamuy");
     }
@@ -199,20 +225,20 @@ mod tests {
     #[test]
     fn respects_max() {
         let s = suggest();
-        let c = CandidateList::build(None, "ka", &s, 2);
+        let c = CandidateList::build(None, None, "ka", &s, 2);
         assert_eq!(c.len(), 2);
     }
 
     #[test]
     fn empty_word_is_empty_list() {
         let s = suggest();
-        assert!(CandidateList::build(None, "", &s, 8).is_empty());
+        assert!(CandidateList::build(None, None, "", &s, 8).is_empty());
     }
 
     #[test]
     fn selection_wraps_and_indexes() {
         let s = suggest();
-        let mut c = CandidateList::build(None, "ka", &s, 8);
+        let mut c = CandidateList::build(None, None, "ka", &s, 8);
         let n = c.len();
         assert_eq!(c.selected(), 0);
         c.select_prev();
