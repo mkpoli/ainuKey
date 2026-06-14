@@ -36,6 +36,8 @@ pub struct TextServiceState {
     pub candidate_window: Option<CandidateWindow>,
     /// Candidate list for the current composition.
     pub candidates: CandidateList,
+    /// The last word we committed (Latin), used as next-word prediction context.
+    pub last_committed: Option<String>,
 }
 
 impl Default for TextServiceState {
@@ -50,6 +52,7 @@ impl Default for TextServiceState {
             buffer: String::new(),
             candidate_window: None,
             candidates: CandidateList::default(),
+            last_committed: None,
         }
     }
 }
