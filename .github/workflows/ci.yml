@@ -37,3 +37,42 @@ jobs:
       - name: Format check
         run: cargo fmt --check
         continue-on-error: true
+
+  # Cross-link the actual DLL on Linux (lld-link + MSVC libs via cargo-xwin) and
+  # assert the COM entry points are exported. This catches link/resource/export
+  # failures that `cargo check` cannot, on cheap Ubuntu runners.
+  cross-link:
+    name: Cross-link DLL + verify exports (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable + msvc target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends llvm clang lld binutils-mingw-w64
+          cargo install cargo-xwin --locked
+
+      - name: Cross-link the DLL
+        run: cargo xwin build --release --target x86_64-pc-windows-msvc
+
+      - name: Verify the four COM entry points are exported
+        run: |
+          dll=target/x86_64-pc-windows-msvc/release/ainukey.dll
+          test -f "$dll" || { echo "DLL not built: $dll"; exit 1; }
+          file "$dll"
+          objdump=$(command -v x86_64-w64-mingw32-objdump || command -v objdump)
+          for fn in DllGetClassObject DllCanUnloadNow DllRegisterServer DllUnregisterServer; do
+            "$objdump" -p "$dll" | grep -qw "$fn" || { echo "MISSING export: $fn"; exit 1; }
+            echo "  exported: $fn"
+          done
+          echo "OK: ainukey.dll links and exports all four COM entry points."
