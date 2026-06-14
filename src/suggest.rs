@@ -27,8 +27,11 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
-/// The embedded n-gram table.
-const TABLE: &[u8] = include_bytes!("../data/ngrams.bin");
+/// The embedded n-gram table. Generated into `OUT_DIR` by `build.rs` (see
+/// `data/README.md`): the real table when a locally generated `data/ngrams.bin`
+/// is present, otherwise an EMPTY table — so a public build (without the private
+/// `ainu-corpora`) compiles with suggestions simply disabled.
+const TABLE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ngrams.bin"));
 const MAGIC: &[u8; 4] = b"AKNG";
 
 /// `context string → next words (descending by count)`.
@@ -254,8 +257,13 @@ mod tests {
 
     #[test]
     fn embedded_table_loads_and_predicts() {
-        // Validates the real Python-generated table round-trips.
+        // Validates the real Python-generated table round-trips. Public builds
+        // embed an EMPTY table (the corpus is private), so the rich assertions
+        // only run when a real table was generated locally.
         let s = global().expect("embedded table parses");
+        if s.bigram_count() == 0 {
+            return;
+        }
         assert!(s.bigram_count() > 1000);
         assert!(s.trigram_count() > 1000);
         assert_eq!(
