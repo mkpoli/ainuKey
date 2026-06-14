@@ -8,6 +8,7 @@
 
 #![allow(non_snake_case)]
 
+mod candidates;
 mod composition;
 mod display_attribute;
 mod edit_session;
