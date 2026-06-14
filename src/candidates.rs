@@ -29,21 +29,52 @@ pub struct CandidateList {
 impl CandidateList {
     /// Build candidates for an already-normalized romaji `word` (see
     /// [`crate::romaji::normalize`]). The word itself is candidate 0, followed by
-    /// up to `max - 1` frequency-ranked completions (e.g. `kam` → `kam`, `kamuy`,
-    /// `kamui`, …). Empty `word` yields an empty list.
-    pub fn build(word: &str, suggest: &Suggestions, max: usize) -> Self {
-        let mut items = Vec::new();
-        if !word.is_empty() {
-            let mut seen = HashSet::new();
-            items.push(word.to_string());
-            seen.insert(word.to_string());
-            for (w, _) in suggest.complete(word, max) {
-                if items.len() >= max {
-                    break;
-                }
-                if seen.insert(w.to_string()) {
-                    items.push(w.to_string());
-                }
+    /// frequency-ranked completions (e.g. `kam` → `kam`, `kamuy`, `kamui`, …).
+    ///
+    /// When `prev` (the previously committed word) is given, completions that are
+    /// likely to *follow* it are surfaced first — i.e. the bigram next-word model
+    /// re-ranks the completions for context-aware prediction. Empty `word` yields
+    /// an empty list.
+    pub fn build(prev: Option<&str>, word: &str, suggest: &Suggestions, max: usize) -> Self {
+        if word.is_empty() {
+            return Self::default();
+        }
+
+        // Frequency-ranked completions of the current word (over-fetch so the
+        // context re-rank has material to work with).
+        let mut completions: Vec<(String, u32)> = suggest
+            .complete(word, max * 3)
+            .into_iter()
+            .filter(|(w, _)| *w != word)
+            .map(|(w, c)| (w.to_string(), c))
+            .collect();
+
+        // Context boost: prefer completions the bigram model predicts after `prev`.
+        if let Some(prev) = prev {
+            let boost: std::collections::HashMap<&str, u32> = suggest
+                .predict(None, prev)
+                .iter()
+                .map(|(w, c)| (w.as_str(), *c))
+                .collect();
+            // Stable order: predicted-next completions first (by predict weight),
+            // then the remaining completions by their own frequency.
+            completions.sort_by(|a, b| {
+                let ba = boost.get(a.0.as_str()).copied().unwrap_or(0);
+                let bb = boost.get(b.0.as_str()).copied().unwrap_or(0);
+                bb.cmp(&ba).then_with(|| b.1.cmp(&a.1))
+            });
+        }
+
+        let mut items = Vec::with_capacity(max);
+        let mut seen = HashSet::new();
+        items.push(word.to_string());
+        seen.insert(word.to_string());
+        for (w, _) in completions {
+            if items.len() >= max {
+                break;
+            }
+            if seen.insert(w.clone()) {
+                items.push(w);
             }
         }
         Self { items, selected: 0 }
@@ -100,8 +131,8 @@ impl CandidateList {
 mod tests {
     use super::*;
 
-    /// A small synthetic table: unigrams kamuy/kamui/kane/kar (so `kam`/`ka`
-    /// have completions).
+    /// A small synthetic table: unigrams kamuy/kamui/kane/kar, plus a bigram
+    /// `ku` → kamui (so context can override raw frequency).
     fn suggest() -> Suggestions {
         let mut b = Vec::new();
         b.extend(b"AKNG");
@@ -118,15 +149,26 @@ mod tests {
             b.extend(w.as_bytes());
             b.extend(c.to_le_bytes());
         }
-        b.extend(0u32.to_le_bytes()); // no bigrams
+        // bigrams: one context "ku" -> [("kamui", 500)]
+        b.extend(1u32.to_le_bytes());
+        b.push(2);
+        b.extend(b"ku");
+        b.push(1); // one next-word
+        b.push(5);
+        b.extend(b"kamui");
+        b.extend(500u32.to_le_bytes());
         b.extend(0u32.to_le_bytes()); // no trigrams
         Suggestions::load(&b).expect("synth")
+    }
+
+    fn pos(c: &CandidateList, w: &str) -> usize {
+        c.items().iter().position(|x| x == w).expect("present")
     }
 
     #[test]
     fn typed_word_is_first_then_completions() {
         let s = suggest();
-        let c = CandidateList::build("kam", &s, 8);
+        let c = CandidateList::build(None, "kam", &s, 8);
         assert_eq!(c.items()[0], "kam"); // the typed word
         assert!(c.items().contains(&"kamuy".to_string()));
         assert!(c.items().contains(&"kamui".to_string()));
@@ -135,10 +177,21 @@ mod tests {
     }
 
     #[test]
+    fn context_reranks_completions() {
+        let s = suggest();
+        // No context → frequency order: kamuy (1000) before kamui (400).
+        let plain = CandidateList::build(None, "kam", &s, 8);
+        assert!(pos(&plain, "kamuy") < pos(&plain, "kamui"));
+        // prev = "ku" predicts kamui → kamui surfaces before kamuy.
+        let ctx = CandidateList::build(Some("ku"), "kam", &s, 8);
+        assert!(pos(&ctx, "kamui") < pos(&ctx, "kamuy"));
+    }
+
+    #[test]
     fn dedups_typed_word_against_completion() {
         let s = suggest();
         // 'kamuy' is both the typed word and a known unigram; it appears once.
-        let c = CandidateList::build("kamuy", &s, 8);
+        let c = CandidateList::build(None, "kamuy", &s, 8);
         assert_eq!(c.items().iter().filter(|w| *w == "kamuy").count(), 1);
         assert_eq!(c.items()[0], "kamuy");
     }
@@ -146,20 +199,20 @@ mod tests {
     #[test]
     fn respects_max() {
         let s = suggest();
-        let c = CandidateList::build("ka", &s, 2);
+        let c = CandidateList::build(None, "ka", &s, 2);
         assert_eq!(c.len(), 2);
     }
 
     #[test]
     fn empty_word_is_empty_list() {
         let s = suggest();
-        assert!(CandidateList::build("", &s, 8).is_empty());
+        assert!(CandidateList::build(None, "", &s, 8).is_empty());
     }
 
     #[test]
     fn selection_wraps_and_indexes() {
         let s = suggest();
-        let mut c = CandidateList::build("ka", &s, 8);
+        let mut c = CandidateList::build(None, "ka", &s, 8);
         let n = c.len();
         assert_eq!(c.selected(), 0);
         c.select_prev();
