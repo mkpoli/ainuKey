@@ -57,6 +57,8 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         state.client_id = 0;
         state.buffer.clear();
         state.composition = None;
+        state.candidate_window = None;
+        state.candidates = crate::candidates::CandidateList::default();
         // Release the thread manager LAST.
         state.thread_mgr = None;
         Ok(())
@@ -126,6 +128,9 @@ impl TextService_Impl {
             state.buffer.clear();
             state.composition = None;
         }
+        // Create the candidate window (best-effort; suggestions are optional).
+        self.inner_mut().candidate_window = crate::candidate_window::CandidateWindow::new();
+
         let _ = TF_INVALID_COOKIE; // referenced for clarity; cookies are valid here
         Ok(())
     }

@@ -63,6 +63,19 @@ impl TextService_Impl {
             Action::Cancel => {
                 self.cancel(context)?;
             }
+            Action::SelectNext => {
+                self.inner_mut().candidates.select_next();
+                self.show_candidates();
+            }
+            Action::SelectPrev => {
+                self.inner_mut().candidates.select_prev();
+                self.show_candidates();
+            }
+            Action::SelectIndex(i) => {
+                if self.inner_mut().candidates.select_index(i) {
+                    self.commit(context)?;
+                }
+            }
             Action::Passthrough => {}
         }
         Ok(())
@@ -119,7 +132,9 @@ impl TextService_Impl {
                 ctx.SetSelection(ec, &[selection])?;
                 Ok(())
             }
-        })
+        })?;
+        self.refresh_candidates();
+        Ok(())
     }
 
     fn commit(&self, context: &ITfContext) -> windows::core::Result<()> {
@@ -127,10 +142,17 @@ impl TextService_Impl {
             Some(c) => c,
             None => return Ok(()),
         };
-        let kana: Vec<u16> =
-            ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
-                .encode_utf16()
-                .collect();
+        // Commit the selected candidate (Latin), falling back to the normalized
+        // buffer when there are no candidates.
+        let chosen = self
+            .inner()
+            .candidates
+            .current()
+            .map(str::to_string)
+            .unwrap_or_else(|| crate::romaji::normalize(&self.inner().buffer));
+        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&chosen)
+            .encode_utf16()
+            .collect();
         let cid = self.inner().client_id;
         let ctx = context.clone();
 
@@ -153,9 +175,11 @@ impl TextService_Impl {
                 Ok(())
             }
         })?;
+        self.hide_candidates();
         let mut state = self.inner_mut();
         state.composition = None;
         state.buffer.clear();
+        state.candidates = crate::candidates::CandidateList::default();
         Ok(())
     }
 
@@ -177,9 +201,11 @@ impl TextService_Impl {
                 Ok(())
             }
         })?;
+        self.hide_candidates();
         let mut state = self.inner_mut();
         state.composition = None;
         state.buffer.clear();
+        state.candidates = crate::candidates::CandidateList::default();
         Ok(())
     }
 }
@@ -190,10 +216,56 @@ impl ITfCompositionSink_Impl for TextService_Impl {
         _ecwrite: u32,
         _pcomposition: Ref<'_, ITfComposition>,
     ) -> windows::core::Result<()> {
+        self.hide_candidates();
         let mut state = self.inner_mut();
         state.composition = None;
         state.buffer.clear();
+        state.candidates = crate::candidates::CandidateList::default();
         Ok(())
+    }
+}
+
+impl TextService_Impl {
+    /// Rebuild the candidate list from the current buffer and show it.
+    fn refresh_candidates(&self) {
+        let norm = crate::romaji::normalize(&self.inner().buffer);
+        let list = match crate::suggest::global() {
+            Some(s) => crate::candidates::CandidateList::build(&norm, s, 9),
+            None => crate::candidates::CandidateList::default(),
+        };
+        self.inner_mut().candidates = list;
+        self.show_candidates();
+    }
+
+    /// (Re)show the candidate window from the stored list, converting each
+    /// candidate to katakana for display. Hides it when the list is empty.
+    fn show_candidates(&self) {
+        let (display, selected): (Vec<String>, usize) = {
+            let state = self.inner();
+            let display = state
+                .candidates
+                .items()
+                .iter()
+                .map(|w| ainconv::convert_latn_to_kana(w))
+                .collect();
+            (display, state.candidates.selected())
+        };
+        let state = self.inner();
+        if let Some(win) = state.candidate_window.as_ref() {
+            if display.is_empty() {
+                win.hide();
+            } else {
+                win.show(&display, selected);
+            }
+        }
+    }
+
+    /// Hide the candidate window (keeping the stored list).
+    fn hide_candidates(&self) {
+        let state = self.inner();
+        if let Some(win) = state.candidate_window.as_ref() {
+            win.hide();
+        }
     }
 }
 
