@@ -15,6 +15,7 @@ mod factory;
 mod guids;
 mod key_event_sink;
 mod registry;
+mod romaji;
 mod text_input_processor;
 mod text_service;
 mod thread_mgr_event_sink;
