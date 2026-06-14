@@ -3,8 +3,10 @@
 ## `ngrams.bin`
 
 A compact n-gram suggestion table embedded into the IME (`src/suggest.rs` via
-`include_bytes!`). It holds a unigram frequency list (default suggestions) and a
-bigram model (previous word → top next words) used for next-word prediction.
+`include_bytes!`). It holds a unigram frequency list (default suggestions), a
+bigram model (previous word → next words), and a trigram model
+((prev2 prev1) → next words). Next-word prediction uses trigram → bigram →
+unigram backoff.
 
 - **Source:** derived word/bigram **counts** from the
   [`ainu-corpora`](https://github.com/mkpoli/ainu-corpora) corpus
