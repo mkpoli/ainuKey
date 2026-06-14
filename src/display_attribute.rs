@@ -15,9 +15,7 @@ use crate::guids::GUID_DISPLAY_ATTRIBUTE;
 use crate::text_service::TextService_Impl;
 
 impl ITfDisplayAttributeProvider_Impl for TextService_Impl {
-    fn EnumDisplayAttributeInfo(
-        &self,
-    ) -> windows::core::Result<IEnumTfDisplayAttributeInfo> {
+    fn EnumDisplayAttributeInfo(&self) -> windows::core::Result<IEnumTfDisplayAttributeInfo> {
         Ok(EnumDisplayAttributeInfo::new().into())
     }
 
@@ -70,10 +68,7 @@ impl ITfDisplayAttributeInfo_Impl for DisplayAttributeInfo_Impl {
         Ok(BSTR::from("ainuKey preedit"))
     }
 
-    fn GetAttributeInfo(
-        &self,
-        pda: *mut TF_DISPLAYATTRIBUTE,
-    ) -> windows::core::Result<()> {
+    fn GetAttributeInfo(&self, pda: *mut TF_DISPLAYATTRIBUTE) -> windows::core::Result<()> {
         if pda.is_null() {
             return Err(windows::Win32::Foundation::E_POINTER.into());
         }
@@ -84,10 +79,7 @@ impl ITfDisplayAttributeInfo_Impl for DisplayAttributeInfo_Impl {
         Ok(())
     }
 
-    fn SetAttributeInfo(
-        &self,
-        _pda: *const TF_DISPLAYATTRIBUTE,
-    ) -> windows::core::Result<()> {
+    fn SetAttributeInfo(&self, _pda: *const TF_DISPLAYATTRIBUTE) -> windows::core::Result<()> {
         // Immutable.
         Ok(())
     }

@@ -4,9 +4,11 @@
 
 use std::mem::ManuallyDrop;
 
-use windows::core::{Interface, IUnknownImpl, Ref};
+use windows::core::{IUnknownImpl, Interface, Ref};
 use windows::Win32::Foundation::E_FAIL;
-use windows::Win32::System::Variant::{VARENUM, VARIANT, VARIANT_0, VARIANT_0_0, VARIANT_0_0_0, VT_I4};
+use windows::Win32::System::Variant::{
+    VARENUM, VARIANT, VARIANT_0, VARIANT_0_0, VARIANT_0_0_0, VT_I4,
+};
 use windows::Win32::UI::TextServices::{
     ITfComposition, ITfCompositionSink, ITfCompositionSink_Impl, ITfContext, ITfContextComposition,
     ITfInsertAtSelection, GUID_PROP_ATTRIBUTE, TF_AE_NONE, TF_ANCHOR_END, TF_IAS_QUERYONLY,
@@ -86,9 +88,10 @@ impl TextService_Impl {
 
     fn update_preedit(&self, context: &ITfContext) -> windows::core::Result<()> {
         let comp = self.inner().composition.clone().ok_or(E_FAIL)?;
-        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
-            .encode_utf16()
-            .collect();
+        let kana: Vec<u16> =
+            ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
+                .encode_utf16()
+                .collect();
         let atom = self.inner().display_attribute_atom as i32;
         let cid = self.inner().client_id;
         let ctx = context.clone();
@@ -124,9 +127,10 @@ impl TextService_Impl {
             Some(c) => c,
             None => return Ok(()),
         };
-        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
-            .encode_utf16()
-            .collect();
+        let kana: Vec<u16> =
+            ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
+                .encode_utf16()
+                .collect();
         let cid = self.inner().client_id;
         let ctx = context.clone();
 

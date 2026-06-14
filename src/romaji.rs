@@ -438,7 +438,7 @@ mod tests {
         // A maximally legacy spelling exercising several rules at once.
         // `Fuchi` → lowercase `fuchi` → R8 `fu`→`hu` → R3 `chi`→`ci` = `huci`.
         assert_eq!(normalize("Fuchi"), "huci"); // → フチ
-        // `Chishi` → `cishi`? No: `chi`→`ci`, then `shi`→`si` (onset after `i`).
+                                                // `Chishi` → `cishi`? No: `chi`→`ci`, then `shi`→`si` (onset after `i`).
         assert_eq!(normalize("Chishi"), "cisi");
     }
 }

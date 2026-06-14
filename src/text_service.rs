@@ -6,9 +6,9 @@ use std::cell::{Ref, RefCell, RefMut};
 
 use windows::core::implement;
 use windows::Win32::UI::TextServices::{
-    ITfCategoryMgr, ITfCompositionSink, ITfDisplayAttributeProvider, ITfKeyEventSink,
-    ITfTextInputProcessor, ITfTextInputProcessorEx, ITfThreadMgrEventSink, ITfComposition,
-    ITfThreadMgr, TF_INVALID_COOKIE,
+    ITfCategoryMgr, ITfComposition, ITfCompositionSink, ITfDisplayAttributeProvider,
+    ITfKeyEventSink, ITfTextInputProcessor, ITfTextInputProcessorEx, ITfThreadMgr,
+    ITfThreadMgrEventSink, TF_INVALID_COOKIE,
 };
 
 /// Inner, single-threaded-apartment state. All `_Impl` methods take `&self`;
@@ -51,7 +51,7 @@ impl Default for TextServiceState {
     ITfKeyEventSink,
     ITfThreadMgrEventSink,
     ITfCompositionSink,
-    ITfDisplayAttributeProvider,
+    ITfDisplayAttributeProvider
 )]
 pub struct TextService {
     inner: RefCell<TextServiceState>,

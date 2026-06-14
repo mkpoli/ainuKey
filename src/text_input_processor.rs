@@ -3,11 +3,11 @@
 //! sinks and sets up the display attribute; `Deactivate` tears everything down
 //! in reverse, idempotently.
 
-use windows::core::{Interface, IUnknownImpl, Ref};
+use windows::core::{IUnknownImpl, Interface, Ref};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows::Win32::UI::TextServices::{
-    ITfCategoryMgr, ITfKeyEventSink, ITfKeystrokeMgr, ITfSource, ITfTextInputProcessorEx_Impl,
-    ITfTextInputProcessor_Impl, ITfThreadMgr, ITfThreadMgrEventSink, CLSID_TF_CategoryMgr,
+    CLSID_TF_CategoryMgr, ITfCategoryMgr, ITfKeyEventSink, ITfKeystrokeMgr, ITfSource,
+    ITfTextInputProcessorEx_Impl, ITfTextInputProcessor_Impl, ITfThreadMgr, ITfThreadMgrEventSink,
     TF_INVALID_COOKIE,
 };
 
