@@ -86,7 +86,7 @@ impl TextService_Impl {
 
     fn update_preedit(&self, context: &ITfContext) -> windows::core::Result<()> {
         let comp = self.inner().composition.clone().ok_or(E_FAIL)?;
-        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&self.inner().buffer)
+        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
             .encode_utf16()
             .collect();
         let atom = self.inner().display_attribute_atom as i32;
@@ -124,7 +124,7 @@ impl TextService_Impl {
             Some(c) => c,
             None => return Ok(()),
         };
-        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&self.inner().buffer)
+        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
             .encode_utf16()
             .collect();
         let cid = self.inner().client_id;
