@@ -180,7 +180,8 @@ impl TextService_Impl {
         state.composition = None;
         state.buffer.clear();
         state.candidates = crate::candidates::CandidateList::default();
-        // Remember the committed word as next-word prediction context.
+        // Shift the committed-word history (prev2, prev1) for trigram context.
+        state.prev_committed = state.last_committed.take();
         state.last_committed = Some(chosen);
         Ok(())
     }
@@ -230,15 +231,22 @@ impl ITfCompositionSink_Impl for TextService_Impl {
 impl TextService_Impl {
     /// Rebuild the candidate list from the current buffer and show it.
     fn refresh_candidates(&self) {
-        let (norm, prev) = {
+        let (norm, prev2, prev1) = {
             let state = self.inner();
             (
                 crate::romaji::normalize(&state.buffer),
+                state.prev_committed.clone(),
                 state.last_committed.clone(),
             )
         };
         let list = match crate::suggest::global() {
-            Some(s) => crate::candidates::CandidateList::build(prev.as_deref(), &norm, s, 9),
+            Some(s) => crate::candidates::CandidateList::build(
+                prev2.as_deref(),
+                prev1.as_deref(),
+                &norm,
+                s,
+                9,
+            ),
             None => crate::candidates::CandidateList::default(),
         };
         self.inner_mut().candidates = list;
