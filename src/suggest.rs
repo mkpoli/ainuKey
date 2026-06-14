@@ -147,6 +147,23 @@ impl Suggestions {
         &self.unigrams[..n.min(self.unigrams.len())]
     }
 
+    /// Word completions for a partial word: known words starting with `prefix`,
+    /// most-frequent first, up to `n`. Used while the user is mid-word (e.g.
+    /// `kam` → `kamuy`). Empty prefix yields nothing (use `default_words`).
+    pub fn complete(&self, prefix: &str, n: usize) -> Vec<(&str, u32)> {
+        if prefix.is_empty() {
+            return Vec::new();
+        }
+        // `unigrams` is sorted by count descending, so filtering preserves the
+        // frequency order; a linear scan over a few thousand words is cheap.
+        self.unigrams
+            .iter()
+            .filter(|(w, _)| w.starts_with(prefix))
+            .take(n)
+            .map(|(w, c)| (w.as_str(), *c))
+            .collect()
+    }
+
     pub fn bigram_count(&self) -> usize {
         self.bigrams.len()
     }
@@ -211,6 +228,8 @@ mod tests {
         assert!(s.next_words("nope").is_empty());
         assert_eq!(s.bigram_count(), 2);
         assert_eq!(s.trigram_count(), 1);
+        assert_eq!(s.complete("n", 5), vec![("ne", 100)]);
+        assert!(s.complete("", 5).is_empty());
     }
 
     #[test]
@@ -247,5 +266,10 @@ mod tests {
         // Trigram context exists for the most common collocation.
         assert!(!s.predict(Some("ruwe"), "ne").is_empty());
         assert!(!s.default_words(10).is_empty());
+        // Word completion: a partial word resolves to a known headword.
+        assert!(
+            s.complete("kam", 8).iter().any(|(w, _)| *w == "kamuy"),
+            "completing 'kam' should offer 'kamuy'"
+        );
     }
 }
