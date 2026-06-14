@@ -57,15 +57,19 @@ impl ITfFnConfigure_Impl for TextService_Impl {
         // SAFETY: hwndparent may be null (a valid "no owner"); the strings are
         // static NUL-terminated literals.
         unsafe {
+            // Trilingual (Ainu name + 日本語 + English). Ainu terms are from the
+            // itak.aynu.org glossary: aeynuyep = IME (< まぽ), iyanu = settings.
             MessageBoxW(
                 Some(hwndparent),
-                w!("ainuKey — Ainu language IME\r\n\r\n\
-                    • Type romaji; Space/Enter converts to Ainu katakana.\r\n\
-                    • Forgiving input (e.g. ti → ci).\r\n\
-                    • Suggestions: ↑/↓ to choose, digits 1–9 to pick.\r\n\
-                    • Language-bar button toggles kana / Latin mode.\r\n\r\n\
-                    More settings coming soon."),
-                w!("ainuKey settings"),
+                w!("ainuKey — Aynu itak aeynuyep\r\n\
+                    アイヌ語入力（IME） / Ainu-language IME\r\n\r\n\
+                    ・ローマ字を入力し、Space/Enter でカタカナに変換します。\r\n\
+                    Type romaji; Space/Enter converts to Ainu katakana.\r\n\
+                    ・ti → ci のような寛容な入力 / forgiving input (ti → ci).\r\n\
+                    ・候補: ↑/↓ で選択、1–9 で確定 / suggestions: ↑/↓, 1–9.\r\n\
+                    ・言語バーでカタカナ／ローマ字を切替 / toggle katakana / Latin.\r\n\r\n\
+                    iyanu / 設定 / settings — more coming soon."),
+                w!("ainuKey — iyanu（設定 / settings）"),
                 MB_OK | MB_ICONINFORMATION,
             );
         }
