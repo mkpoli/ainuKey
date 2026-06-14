@@ -9,6 +9,7 @@
 #![allow(non_snake_case)]
 
 mod composition;
+mod configure;
 mod display_attribute;
 mod edit_session;
 mod factory;

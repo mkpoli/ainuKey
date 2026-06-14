@@ -8,8 +8,9 @@ use std::rc::Rc;
 use windows::core::implement;
 use windows::Win32::UI::TextServices::{
     ITfCategoryMgr, ITfComposition, ITfCompositionSink, ITfDisplayAttributeProvider,
-    ITfKeyEventSink, ITfLangBarItem, ITfTextInputProcessor, ITfTextInputProcessorEx, ITfThreadMgr,
-    ITfThreadMgrEventSink, TF_INVALID_COOKIE,
+    ITfFnConfigure, ITfFunction, ITfFunctionProvider, ITfKeyEventSink, ITfLangBarItem,
+    ITfTextInputProcessor, ITfTextInputProcessorEx, ITfThreadMgr, ITfThreadMgrEventSink,
+    TF_INVALID_COOKIE,
 };
 
 use crate::lang_bar::Mode;
@@ -60,7 +61,10 @@ impl Default for TextServiceState {
     ITfKeyEventSink,
     ITfThreadMgrEventSink,
     ITfCompositionSink,
-    ITfDisplayAttributeProvider
+    ITfDisplayAttributeProvider,
+    ITfFunctionProvider,
+    ITfFnConfigure,
+    ITfFunction
 )]
 pub struct TextService {
     inner: RefCell<TextServiceState>,
