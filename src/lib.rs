@@ -14,6 +14,7 @@ mod edit_session;
 mod factory;
 mod guids;
 mod key_event_sink;
+mod lang_bar;
 mod registry;
 mod romaji;
 mod text_input_processor;
