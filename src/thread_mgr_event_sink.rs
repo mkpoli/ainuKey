@@ -2,9 +2,7 @@
 //! all state in the key handler, so these are trivial stubs.
 
 use windows::core::Ref;
-use windows::Win32::UI::TextServices::{
-    ITfContext, ITfDocumentMgr, ITfThreadMgrEventSink_Impl,
-};
+use windows::Win32::UI::TextServices::{ITfContext, ITfDocumentMgr, ITfThreadMgrEventSink_Impl};
 
 use crate::text_service::TextService_Impl;
 
