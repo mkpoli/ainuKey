@@ -2,14 +2,18 @@
 //! interface the running TIP needs (single COM object, single refcount), plus
 //! the inner `RefCell` state.
 
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::rc::Rc;
 
 use windows::core::implement;
 use windows::Win32::UI::TextServices::{
     ITfCategoryMgr, ITfComposition, ITfCompositionSink, ITfDisplayAttributeProvider,
-    ITfKeyEventSink, ITfTextInputProcessor, ITfTextInputProcessorEx, ITfThreadMgr,
-    ITfThreadMgrEventSink, TF_INVALID_COOKIE,
+    ITfFnConfigure, ITfFunction, ITfFunctionProvider, ITfKeyEventSink, ITfLangBarItem,
+    ITfTextInputProcessor, ITfTextInputProcessorEx, ITfThreadMgr, ITfThreadMgrEventSink,
+    TF_INVALID_COOKIE,
 };
+
+use crate::lang_bar::Mode;
 
 /// Inner, single-threaded-apartment state. All `_Impl` methods take `&self`;
 /// mutation goes through `RefCell::borrow_mut`.
@@ -29,6 +33,10 @@ pub struct TextServiceState {
     pub composition: Option<ITfComposition>,
     /// The running romaji buffer.
     pub buffer: String,
+    /// Current input mode, shared with the language-bar button.
+    pub mode: Rc<Cell<Mode>>,
+    /// The language-bar item, kept so it can be removed at deactivation.
+    pub langbar_item: Option<ITfLangBarItem>,
 }
 
 impl Default for TextServiceState {
@@ -41,6 +49,8 @@ impl Default for TextServiceState {
             display_attribute_atom: 0,
             composition: None,
             buffer: String::new(),
+            mode: Rc::new(Cell::new(Mode::Kana)),
+            langbar_item: None,
         }
     }
 }
@@ -51,7 +61,10 @@ impl Default for TextServiceState {
     ITfKeyEventSink,
     ITfThreadMgrEventSink,
     ITfCompositionSink,
-    ITfDisplayAttributeProvider
+    ITfDisplayAttributeProvider,
+    ITfFunctionProvider,
+    ITfFnConfigure,
+    ITfFunction
 )]
 pub struct TextService {
     inner: RefCell<TextServiceState>,

@@ -6,12 +6,13 @@
 use windows::core::{IUnknownImpl, Interface, Ref};
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows::Win32::UI::TextServices::{
-    CLSID_TF_CategoryMgr, ITfCategoryMgr, ITfKeyEventSink, ITfKeystrokeMgr, ITfSource,
-    ITfTextInputProcessorEx_Impl, ITfTextInputProcessor_Impl, ITfThreadMgr, ITfThreadMgrEventSink,
-    TF_INVALID_COOKIE,
+    CLSID_TF_CategoryMgr, ITfCategoryMgr, ITfKeyEventSink, ITfKeystrokeMgr, ITfLangBarItem,
+    ITfLangBarItemMgr, ITfSource, ITfTextInputProcessorEx_Impl, ITfTextInputProcessor_Impl,
+    ITfThreadMgr, ITfThreadMgrEventSink, TF_INVALID_COOKIE,
 };
 
 use crate::guids::GUID_DISPLAY_ATTRIBUTE;
+use crate::lang_bar::ModeButton;
 use crate::text_service::TextService_Impl;
 
 impl ITfTextInputProcessor_Impl for TextService_Impl {
@@ -29,6 +30,16 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
 
         let thread_mgr = self.inner().thread_mgr.clone();
         if let Some(tm) = thread_mgr.as_ref() {
+            // Remove the language-bar item.
+            if let Some(item) = self.inner_mut().langbar_item.take() {
+                if let Ok(lbim) = tm.cast::<ITfLangBarItemMgr>() {
+                    // SAFETY: lbim and item are valid COM interfaces.
+                    unsafe {
+                        let _ = lbim.RemoveItem(&item);
+                    }
+                }
+            }
+
             // Unadvise the key-event sink by client id.
             if let Ok(keystroke) = tm.cast::<ITfKeystrokeMgr>() {
                 let cid = self.inner().client_id;
@@ -126,6 +137,20 @@ impl TextService_Impl {
             state.buffer.clear();
             state.composition = None;
         }
+
+        // Add the mode-switch language-bar button (it shares `mode` with the key
+        // handler). Best-effort: a missing language bar must not fail activation.
+        let mode = self.inner().mode.clone();
+        let item: ITfLangBarItem = ModeButton::new(mode).into();
+        if let Ok(lbim) = thread_mgr.cast::<ITfLangBarItemMgr>() {
+            // SAFETY: lbim and item are valid COM interfaces.
+            unsafe {
+                if lbim.AddItem(&item).is_ok() {
+                    self.inner_mut().langbar_item = Some(item);
+                }
+            }
+        }
+
         let _ = TF_INVALID_COOKIE; // referenced for clarity; cookies are valid here
         Ok(())
     }
