@@ -6,8 +6,8 @@
 use windows::core::{Ref, BOOL, GUID};
 use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
-    GetKeyState, GetKeyboardState, ToUnicode, VK_BACK, VK_CONTROL, VK_ESCAPE, VK_MENU, VK_RETURN,
-    VK_SPACE,
+    GetKeyState, GetKeyboardState, ToUnicode, VK_BACK, VK_CONTROL, VK_DOWN, VK_ESCAPE, VK_MENU,
+    VK_RETURN, VK_SPACE, VK_UP,
 };
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
 
@@ -25,6 +25,12 @@ pub enum Action {
     Backspace,
     /// Escape — cancel the composition.
     Cancel,
+    /// Down arrow — highlight the next candidate.
+    SelectNext,
+    /// Up arrow — highlight the previous candidate.
+    SelectPrev,
+    /// Number key 1-9 — select that candidate (0-based) and commit.
+    SelectIndex(usize),
     /// Not for us — pass through to the app.
     Passthrough,
 }
@@ -54,6 +60,16 @@ fn decode(wparam: WPARAM, lparam: LPARAM) -> Action {
     }
     if vk == VK_ESCAPE.0 {
         return Action::Cancel;
+    }
+    if vk == VK_DOWN.0 {
+        return Action::SelectNext;
+    }
+    if vk == VK_UP.0 {
+        return Action::SelectPrev;
+    }
+    // Number keys 1-9 pick a candidate (only eaten while composing).
+    if (0x31..=0x39).contains(&vk) {
+        return Action::SelectIndex((vk - 0x31) as usize);
     }
 
     // Resolve a printable char.
@@ -86,7 +102,12 @@ impl TextService_Impl {
             // In Latin mode we eat nothing, so letters pass straight through to
             // the app; in Kana mode we capture them to build the composition.
             Action::Insert(_) => self.inner().mode.get() == Mode::Kana,
-            Action::Commit | Action::Backspace | Action::Cancel => has_composition,
+            Action::Commit
+            | Action::Backspace
+            | Action::Cancel
+            | Action::SelectNext
+            | Action::SelectPrev
+            | Action::SelectIndex(_) => has_composition,
             Action::Passthrough => false,
         }
     }

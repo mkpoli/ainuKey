@@ -13,6 +13,8 @@ use windows::Win32::UI::TextServices::{
     TF_INVALID_COOKIE,
 };
 
+use crate::candidate_window::CandidateWindow;
+use crate::candidates::CandidateList;
 use crate::lang_bar::Mode;
 
 /// Inner, single-threaded-apartment state. All `_Impl` methods take `&self`;
@@ -37,6 +39,14 @@ pub struct TextServiceState {
     pub mode: Rc<Cell<Mode>>,
     /// The language-bar item, kept so it can be removed at deactivation.
     pub langbar_item: Option<ITfLangBarItem>,
+    /// The candidate popup window (created at activation).
+    pub candidate_window: Option<CandidateWindow>,
+    /// Candidate list for the current composition.
+    pub candidates: CandidateList,
+    /// The last word we committed (Latin) — the bigram prediction context.
+    pub last_committed: Option<String>,
+    /// The word before that — with `last_committed`, the trigram context.
+    pub prev_committed: Option<String>,
 }
 
 impl Default for TextServiceState {
@@ -51,6 +61,10 @@ impl Default for TextServiceState {
             buffer: String::new(),
             mode: Rc::new(Cell::new(Mode::Kana)),
             langbar_item: None,
+            candidate_window: None,
+            candidates: CandidateList::default(),
+            last_committed: None,
+            prev_committed: None,
         }
     }
 }
