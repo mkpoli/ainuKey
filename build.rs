@@ -28,13 +28,10 @@ fn main() {
 
 /// Provide the n-gram suggestion table to `OUT_DIR` for `include_bytes!`.
 ///
-/// The table is DERIVED from the rights-restricted `ainu-corpora` and is
-/// therefore **not committed** (see `data/README.md`). If a locally generated
-/// `data/ngrams.bin` is present (run `tools/build_ngrams.py` with the private
-/// corpus), it is embedded; otherwise an EMPTY table is embedded, so a public
-/// build — without the corpus — compiles cleanly with suggestions simply
-/// disabled. This keeps corpus-derived data out of the public repo and gates the
-/// suggestion feature on the private data / a rights review.
+/// The committed `data/ngrams.bin` (aggregate counts derived from `ainu-corpora`,
+/// cleared for distribution — see `data/README.md`) is copied to `OUT_DIR`. If it
+/// is ever absent (e.g. deleted locally), an EMPTY table is embedded instead so
+/// the crate still builds — just with suggestions disabled.
 fn provide_ngrams_table() {
     use std::path::Path;
     println!("cargo:rerun-if-changed=data/ngrams.bin");
