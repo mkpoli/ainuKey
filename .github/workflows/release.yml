@@ -57,6 +57,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path $stage | Out-Null
           Copy-Item target/x86_64-pc-windows-msvc/release/ainukey.dll $stage/
           Copy-Item install.ps1 $stage/
+          Copy-Item installer/enable-user.ps1 $stage/
           Copy-Item README.md    $stage/
           Copy-Item LICENSE      $stage/
           Compress-Archive -Path "$stage/*" -DestinationPath "ainuKey-${{ steps.ver.outputs.tag }}-x86_64-windows-msvc.zip" -Force

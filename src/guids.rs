@@ -21,15 +21,12 @@ pub const SERVICE_NAME: PCWSTR = w!("ainuKeyTextService");
 /// Human-facing display description shown in the language switcher.
 pub const DISPLAY_DESCRIPTION: PCWSTR = w!("ainuKey");
 
-/// BCP-47 language tag for Ainu. (Kept for identity; the profile is registered
-/// under the ja-JP langid in v1, so this is not yet referenced.)
+/// BCP-47 language tag for Ainu. The DLL registers its profile against the
+/// transient LCIDs (see `registry.rs`); the installer adds this tag to the
+/// user's language list (`Set-WinUserLanguageList`) and enables the profile via
+/// `InstallLayoutOrTip`.
 #[allow(dead_code)]
 pub const LANG_TAG_AIN: PCWSTR = w!("ain");
-
-/// Locale used ONLY to obtain a concrete numeric langid for RegisterProfile,
-/// because Ainu has no assigned Windows LCID. We register the profile under the
-/// Japanese locale's langid so it appears in the JP input-method group.
-pub const PROFILE_LOCALE: PCWSTR = w!("ja-JP");
 
 /// LOCALE_CUSTOM_UNSPECIFIED = MAKELANGID(LANG_NEUTRAL, SUBLANG_CUSTOM_UNSPECIFIED).
 /// Retained as the canonical "Ainu has no LCID" constant; used if/when a

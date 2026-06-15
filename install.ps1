@@ -1,67 +1,79 @@
 <#
-  install.ps1 — install & register ainuKey as a Windows TSF input method.
+  install.ps1 — install & register ainuKey as the Ainu Windows input method.
 
-  Works both from a release package (ainukey.dll sits next to this script) and
-  from a dev checkout (DLL under target\x86_64-pc-windows-msvc\release\).
+  Two halves, because Ainu needs both a machine-wide COM registration and a
+  per-user language enable:
+    1. Machine-wide (elevated): copy the DLL into Program Files and regsvr32 it
+       (registers the COM server + the four transient-LCID input profiles).
+    2. Per-user (your normal account, NOT elevated): add Ainu to your language
+       list and enable the input method — enable-user.ps1.
 
-  Copies the DLL into "%ProgramFiles%\ainuKey" — a location every app, including
-  UWP / Store apps (AppContainer), is allowed to load from — and registers it
-  with regsvr32. Do NOT register the DLL from the \\wsl.localhost\ share: UWP
-  apps cannot load from it and it is slow.
+  Run this as your normal user; it elevates only the machine half.
 
-  Self-elevates (a UAC prompt appears), because registration writes machine COM
-  keys and the TSF profile.
+  Works from a release package (ainukey.dll + enable-user.ps1 next to this
+  script) and from a dev checkout (DLL under target\..., enable-user.ps1 under
+  installer\).
 
   Usage:
-    .\install.ps1              # install + register
-    .\install.ps1 -Uninstall   # unregister + remove
-#>
-param([switch]$Uninstall)
-$ErrorActionPreference = 'Stop'
+    .\install.ps1              # install + register + enable
+    .\install.ps1 -Uninstall   # disable + unregister + remove
 
-# --- self-elevate if not already admin ---
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $isAdmin) {
-    $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
-    if ($Uninstall) { $a += '-Uninstall' }
-    Start-Process powershell.exe -Verb RunAs -ArgumentList $a
-    return
-}
+  NOTE (v0.2): the transient-LCID / InstallLayoutOrTip path is new and needs
+  testing on a real Windows machine.
+#>
+param([switch]$Uninstall, [switch]$MachineStep)
+$ErrorActionPreference = 'Stop'
 
 $installDir = Join-Path $env:ProgramFiles 'ainuKey'
 $dst        = Join-Path $installDir 'ainukey.dll'
 
-if ($Uninstall) {
-    if (Test-Path $dst) {
-        & regsvr32.exe /u /s $dst
-        Remove-Item $installDir -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "ainuKey unregistered and removed from $installDir"
-    } else {
-        Write-Host "Nothing to uninstall ($dst not found)."
+# ---------- Machine half (re-invoked elevated via -MachineStep) ----------
+if ($MachineStep) {
+    if ($Uninstall) {
+        if (Test-Path $dst) {
+            & regsvr32.exe /u /s $dst
+            Remove-Item $installDir -Recurse -Force -ErrorAction SilentlyContinue
+        }
+        return
     }
-    Read-Host "Press Enter to close"
+    $src = @(
+        (Join-Path $PSScriptRoot 'ainukey.dll'),
+        (Join-Path $PSScriptRoot 'target\x86_64-pc-windows-msvc\release\ainukey.dll')
+    ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (-not $src) { throw "ainukey.dll not found; run .\build.ps1 or unzip the release first." }
+    New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+    Copy-Item $src $dst -Force
+    & regsvr32.exe /s $dst
+    if ($LASTEXITCODE -ne 0) { throw "regsvr32 failed ($LASTEXITCODE)" }
     return
 }
 
-# Locate the built DLL: release-zip layout first, then dev-checkout layout.
-$candidates = @(
-    (Join-Path $PSScriptRoot 'ainukey.dll'),
-    (Join-Path $PSScriptRoot 'target\x86_64-pc-windows-msvc\release\ainukey.dll')
-)
-$src = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $src) {
-    throw "ainukey.dll not found. Looked in:`n  $($candidates -join "`n  ")`nRun .\build.ps1 first (dev), or unzip the release package and run from there."
+# ---------- Locate enable-user.ps1 (zip layout or dev checkout) ----------
+$enable = @(
+    (Join-Path $PSScriptRoot 'enable-user.ps1'),
+    (Join-Path $PSScriptRoot 'installer\enable-user.ps1')
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $enable) { throw "enable-user.ps1 not found next to install.ps1." }
+
+function Invoke-MachineStep {
+    $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"", '-MachineStep')
+    if ($Uninstall) { $a += '-Uninstall' }
+    $p = Start-Process powershell.exe -Verb RunAs -ArgumentList $a -Wait -PassThru
+    if ($p.ExitCode -ne 0) { throw "Elevated machine step failed (exit $($p.ExitCode))." }
 }
 
-New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-Copy-Item $src $dst -Force
-Write-Host "Copied DLL -> $dst"
-Write-Host "Registering (regsvr32 will show a success/failure dialog)..."
-& regsvr32.exe $dst
-
-Write-Host ""
-Write-Host "If registration succeeded: open Notepad, switch input method (Win+Space"
-Write-Host "or the taskbar language button) to 'ainuKey', and type romaji."
-Write-Host "NOTE: v1 registers the profile under the ja-JP langid, so you may need"
-Write-Host "Japanese added under Settings > Time & language > Language for it to appear."
+if ($Uninstall) {
+    # Disable per-user FIRST (while the profile still exists), then unregister.
+    & $enable -Uninstall
+    Write-Host "Unregistering (UAC prompt)..."
+    Invoke-MachineStep
+    Write-Host "ainuKey uninstalled."
+} else {
+    # Register machine-wide FIRST, then enable for this user.
+    Write-Host "Registering ainuKey (UAC prompt)..."
+    Invoke-MachineStep
+    & $enable
+    Write-Host ""
+    Write-Host "ainuKey installed as the Ainu language. Switch input (Win+Space) to Ainu and type romaji."
+}
 Read-Host "Press Enter to close"
