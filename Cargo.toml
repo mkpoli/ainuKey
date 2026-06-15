@@ -1,6 +1,6 @@
 [package]
 name = "ainukey"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "ainuKey — Ainu language IME for Windows (TSF)"
 authors = ["mkpoli <mkpoli@mkpo.li>"]
