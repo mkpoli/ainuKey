@@ -18,6 +18,7 @@ mod key_event_sink;
 mod lang_bar;
 mod registry;
 mod romaji;
+mod suggest;
 mod text_input_processor;
 mod text_service;
 mod thread_mgr_event_sink;
