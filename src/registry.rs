@@ -35,17 +35,16 @@ const CATEGORIES: [GUID; 7] = [
     GUID_TFCAT_TIPCAP_SYSTRAYSUPPORT,
 ];
 
-/// The four desktop "keyboard transient" LCIDs.
+/// Langid the input profile is registered under.
 ///
-/// Ainu (BCP-47 `ain`) has no assigned Windows LCID, so its input profile is
-/// registered against all four transient slots. Once a user adds `ain` to their
-/// language list, Windows assigns it one of these LCIDs; registering all four
-/// up front (in the machine-wide `DllRegisterServer`) means whichever slot it
-/// lands in already has a live profile. The per-user *enable* step
-/// (`Set-WinUserLanguageList` + `InstallLayoutOrTip`) is done by the installer,
-/// not here. See [MS-LCID] "Locale Names without LCIDs" and Keyman's
-/// `RegisterTransientTips`.
-const TRANSIENT_LANGIDS: [u16; 4] = [0x2000, 0x2400, 0x2800, 0x2C00];
+/// Ainu (BCP-47 `ain`) has **no** Windows locale, and `Set-WinUserLanguageList`
+/// rejects `ain` as an invalid language — so the transient-LCID path (registering
+/// against `0x2000..0x2C00` + a per-user enable) does **not** surface it. As a
+/// working fallback we register under the Japanese langid (`ja-JP` = 0x0411),
+/// enabled by default, so the IME appears under Japanese with no per-user step.
+/// Proper "shows as Ainu" needs Keyman-style registry provisioning of a custom
+/// language; tracked separately.
+const PROFILE_LANGID: u16 = 0x0411;
 
 /// Resolve the DLL's own absolute path, NUL-terminated, as UTF-16.
 fn module_path_utf16() -> windows::core::Result<Vec<u16>> {
@@ -195,25 +194,21 @@ fn register_profile() -> windows::core::Result<()> {
     let name = wide_pcwstr_owned(DISPLAY_DESCRIPTION); // NUL-terminated
     let dll_path = module_path_utf16()?; // also the icon source (index 0 -> IDI_ICON)
 
-    // Register the profile against every transient LCID Ainu might be assigned.
-    // Not enabled by default — the installer enables the live one per user via
-    // InstallLayoutOrTip.
-    for &langid in &TRANSIENT_LANGIDS {
-        // SAFETY: all pointers/slices valid for the call's duration.
-        unsafe {
-            profiles.RegisterProfile(
-                &GUID_TEXT_SERVICE,
-                langid,
-                &GUID_PROFILE,
-                &name[..name.len() - 1], // display name, without the trailing NUL
-                &dll_path,               // icon file = the DLL itself
-                0,                       // icon index -> IDI_ICON
-                HKL(std::ptr::null_mut()),
-                0,
-                false, // enabled per-user via InstallLayoutOrTip, not by default
-                0,
-            )?;
-        }
+    // Register the profile under the ja-JP langid, enabled by default.
+    // SAFETY: all pointers/slices valid for the call's duration.
+    unsafe {
+        profiles.RegisterProfile(
+            &GUID_TEXT_SERVICE,
+            PROFILE_LANGID,
+            &GUID_PROFILE,
+            &name[..name.len() - 1], // display name, without the trailing NUL
+            &dll_path,               // icon file = the DLL itself
+            0,                       // icon index -> IDI_ICON
+            HKL(std::ptr::null_mut()),
+            0,
+            true, // enabled by default (no per-user step needed)
+            0,
+        )?;
     }
     Ok(())
 }
@@ -222,11 +217,9 @@ fn unregister_profile() -> windows::core::Result<()> {
     // SAFETY: standard in-proc COM creation.
     let profiles: ITfInputProcessorProfileMgr =
         unsafe { CoCreateInstance(&CLSID_TF_InputProcessorProfiles, None, CLSCTX_INPROC_SERVER)? };
-    for &langid in &TRANSIENT_LANGIDS {
-        // SAFETY: profiles valid; GUID pointers valid. Best-effort per slot.
-        unsafe {
-            let _ = profiles.UnregisterProfile(&GUID_TEXT_SERVICE, langid, &GUID_PROFILE, 0);
-        }
+    // SAFETY: profiles valid; GUID pointers valid. Best-effort.
+    unsafe {
+        let _ = profiles.UnregisterProfile(&GUID_TEXT_SERVICE, PROFILE_LANGID, &GUID_PROFILE, 0);
     }
     Ok(())
 }
