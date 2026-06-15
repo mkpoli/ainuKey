@@ -1,2 +1,7 @@
-zig-cache/
-zig-out/
+/target
+
+# Local release build outputs
+/dist/
+/out/
+/ainuKey-*-x86_64-windows-msvc.zip
+/ainuKey-*-x86_64-windows-setup.exe

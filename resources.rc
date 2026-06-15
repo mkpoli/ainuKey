@@ -1,0 +1,9 @@
+// ainuKey icon resources.
+//
+// Paths are relative to the crate root. Cargo runs build scripts with the
+// current directory set to CARGO_MANIFEST_DIR, and rc.exe resolves resource
+// file paths against the current directory first, so "assets/<file>" is correct
+// and unambiguous (this .rc lives at the crate root next to the assets/ dir).
+IDI_ICON      ICON "assets/icon.ico"
+IDI_MODE_KANA ICON "assets/mode_kana.ico"
+IDI_MODE_LATN ICON "assets/mode_latn.ico"
