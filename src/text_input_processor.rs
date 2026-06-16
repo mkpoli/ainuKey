@@ -158,7 +158,6 @@ impl TextService_Impl {
         // Create the candidate window (best-effort; suggestions are optional).
         self.inner_mut().candidate_window = crate::candidate_window::CandidateWindow::new();
 
-        let _ = TF_INVALID_COOKIE; // referenced for clarity; cookies are valid here
         Ok(())
     }
 }
