@@ -37,10 +37,12 @@ UninstallDisplayIcon={app}\ainukey.dll
 [Files]
 ; `regserver` calls DllRegisterServer on install and DllUnregisterServer on
 ; uninstall. In 64-bit install mode the 64-bit DLL is registered correctly.
+; `regserver` calls DllRegisterServer, which registers the profile under the
+; Japanese langid enabled by default — so no per-user step is needed.
 Source: "..\target\x86_64-pc-windows-msvc\release\ainukey.dll"; DestDir: "{app}"; Flags: ignoreversion regserver
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
 [Messages]
 ; Shown on the final page.
-FinishedLabel=ainuKey was installed. Switch input method (Win+Space) to "ainuKey" and type romaji. If it does not appear, add Japanese under Settings > Time & language > Language.
+FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.
