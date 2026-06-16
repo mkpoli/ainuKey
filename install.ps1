@@ -32,7 +32,9 @@ $dst        = Join-Path $installDir 'ainukey.dll'
 # Rename a (possibly loaded/locked) DLL out of the way so it can be replaced.
 function Move-LockedAside([string]$path) {
     if (-not (Test-Path $path)) { return }
-    & regsvr32.exe /u /s $path  # unregister whatever it currently is
+    # Best-effort unregister of whatever is currently there; a non-zero exit
+    # (e.g. it was never registered) is fine — we're about to replace it anyway.
+    & regsvr32.exe /u /s $path
     $old = Join-Path (Split-Path $path) ("ainukey-old-{0}.dll" -f (Get-Random))
     try {
         Rename-Item $path $old -Force
@@ -60,8 +62,12 @@ New-Item -ItemType Directory -Force -Path $installDir | Out-Null
 Move-LockedAside $dst
 Copy-Item $src $dst -Force
 Write-Host "Installed -> $dst"
-Write-Host "Registering (a regsvr32 dialog will report success/failure)..."
-& regsvr32.exe $dst
+Write-Host "Registering..."
+& regsvr32.exe /s $dst
+if ($LASTEXITCODE -ne 0) {
+    throw "regsvr32 failed to register $dst (exit $LASTEXITCODE). The DLL may be a stale/locked copy — sign out/in or reboot once, then retry .\install.ps1."
+}
+Write-Host "Registered OK."
 
 Write-Host ""
 Write-Host "Switch input method (Win+Space) to ainuKey — listed under Japanese —"
