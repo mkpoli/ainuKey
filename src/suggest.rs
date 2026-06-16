@@ -33,6 +33,8 @@ use std::sync::OnceLock;
 /// `ainu-corpora`) compiles with suggestions simply disabled.
 const TABLE: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/ngrams.bin"));
 const MAGIC: &[u8; 4] = b"AKNG";
+/// Layout version written by `tools/build_ngrams.py`; `load` rejects anything else.
+const VERSION: u32 = 2;
 
 /// `context string → next words (descending by count)`.
 type Contexts = HashMap<String, Vec<(String, u32)>>;
@@ -107,7 +109,11 @@ impl Suggestions {
         if r.take(4)? != MAGIC {
             return None;
         }
-        let _version = r.u32()?;
+        // Reject an unexpected layout version (corruption / format drift) rather
+        // than misparse it.
+        if r.u32()? != VERSION {
+            return None;
+        }
 
         let n_uni = r.u32()? as usize;
         let mut unigrams = Vec::with_capacity(n_uni);
