@@ -76,6 +76,23 @@ fn voiced_cv(onset: char, vowel: char) -> Option<&'static str> {
     })
 }
 
+/// Delegate a canonical-Ainu run to `ainconv`, defensively.
+///
+/// `ainconv` (0.2.0) panics on a word whose syllable ends in the multibyte
+/// glottal stop `’` (U+2019): its syllabifier does `split_at(len - 1)`, slicing
+/// mid-character. Such words occur in the corpus (so they appear as candidate
+/// completions). We normalize `’` to an ASCII apostrophe first — `ainconv`
+/// strips that safely and the glottal isn't rendered in katakana either way —
+/// and additionally catch any residual panic so a dependency bug can never crash
+/// the host application (a panic across the TSF/COM boundary would).
+fn convert_run(run: &str) -> String {
+    let safe = run.replace('\u{2019}', "'");
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        ainconv::convert_latn_to_kana(&safe)
+    }))
+    .unwrap_or(safe)
+}
+
 /// Convert romaji to katakana, handling voiced/loanword syllables `ainconv`
 /// cannot, and delegating canonical-Ainu runs to `ainconv`.
 pub fn convert(latn: &str) -> String {
@@ -90,7 +107,7 @@ pub fn convert(latn: &str) -> String {
             // (e.g. the user has typed only `k`), so emit it verbatim instead of
             // delegating — it becomes katakana once a vowel completes the syllable.
             if run.chars().any(is_vowel) {
-                out.push_str(&ainconv::convert_latn_to_kana(run));
+                out.push_str(&convert_run(run));
             } else {
                 out.push_str(run);
             }
@@ -314,5 +331,19 @@ mod tests {
         // and once the vowel arrives it converts normally
         assert_eq!(convert("ka"), "カ");
         assert_eq!(convert("na"), "ナ");
+    }
+
+    #[test]
+    fn glottal_stop_does_not_crash() {
+        // Regression: ainconv 0.2.0 panics on a syllable ending in the multibyte
+        // glottal stop ’ (U+2019) — split_at(len-1) slices mid-char. Such words
+        // appear as corpus candidate completions, so rendering them used to crash
+        // the host app (typing "na" surfaced one). convert_run must absorb it.
+        assert_eq!(convert("ne\u{2019}"), "ネ");
+        assert_eq!(convert("po\u{2019}"), "ポ");
+        assert_eq!(convert("a\u{2019}e"), "アエ");
+        // glottal mid-word, and as a bare/leading char — must not panic
+        let _ = convert("\u{2019}");
+        let _ = convert("nispa\u{2019}");
     }
 }
