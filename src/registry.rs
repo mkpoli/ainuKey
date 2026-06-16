@@ -4,7 +4,9 @@
 //! COM initialized for the manager CoCreates.
 
 use windows::core::{GUID, PCWSTR};
-use windows::Win32::Foundation::{ERROR_SUCCESS, E_FAIL, MAX_PATH};
+use windows::Win32::Foundation::{
+    ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND, ERROR_SUCCESS, E_FAIL, MAX_PATH,
+};
 use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER,
     COINIT_APARTMENTTHREADED,
@@ -163,11 +165,13 @@ fn unregister_server() -> windows::core::Result<()> {
     let clsid_key = wide(&format!("CLSID\\{}", clsid_str));
     // SAFETY: clsid_key is a valid NUL-terminated wide string.
     let err = unsafe { RegDeleteTreeW(HKEY_CLASSES_ROOT, PCWSTR(clsid_key.as_ptr())) };
-    if err != ERROR_SUCCESS {
-        // Best-effort: a missing key is fine.
-        return Ok(());
+    // An already-absent key is fine (idempotent unregister); any other failure
+    // is a real error and must not be reported as success.
+    if err == ERROR_SUCCESS || err == ERROR_FILE_NOT_FOUND || err == ERROR_PATH_NOT_FOUND {
+        Ok(())
+    } else {
+        Err(E_FAIL.into())
     }
-    Ok(())
 }
 
 /// Copy a `PCWSTR` static into an owned NUL-terminated `Vec<u16>`.
@@ -255,23 +259,31 @@ fn unregister_categories() -> windows::core::Result<()> {
 // --- Orchestration ---------------------------------------------------------
 
 /// RAII guard for COM initialization in this thread.
-struct ComInit;
+struct ComInit {
+    /// Whether *our* `CoInitializeEx` initialized COM (S_OK/S_FALSE). Only then
+    /// must `Drop` balance it; on failure (e.g. RPC_E_CHANGED_MODE) it must not.
+    initialized: bool,
+}
 
 impl ComInit {
     fn new() -> Self {
-        // SAFETY: initializing an STA on the registration thread.
-        unsafe {
-            let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+        // SAFETY: initializing an STA on the registration thread. Both S_OK and
+        // S_FALSE (already initialized) succeed and require a matching
+        // CoUninitialize; a failure HRESULT does not.
+        let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
+        ComInit {
+            initialized: hr.is_ok(),
         }
-        ComInit
     }
 }
 
 impl Drop for ComInit {
     fn drop(&mut self) {
-        // SAFETY: balanced against the CoInitializeEx above.
-        unsafe {
-            CoUninitialize();
+        if self.initialized {
+            // SAFETY: balanced against a successful CoInitializeEx above.
+            unsafe {
+                CoUninitialize();
+            }
         }
     }
 }
@@ -286,6 +298,9 @@ pub fn register_all() -> windows::core::Result<()> {
 
 pub fn unregister_all() -> windows::core::Result<()> {
     let _com = ComInit::new();
+    // Deliberately best-effort: an uninstaller should tear down as much as it
+    // can, so a failure in one step must not skip the others. (Each step is
+    // itself idempotent and treats already-absent state as success.)
     let _ = unregister_profile();
     let _ = unregister_categories();
     let _ = unregister_server();
