@@ -1,16 +1,14 @@
 <#
-  install.ps1 — install & register ainuKey as a Windows TSF input method.
+  install.ps1 — install & register ainuKey (integration build, ja-JP profile).
 
-  Works both from a release package (ainukey.dll sits next to this script) and
-  from a dev checkout (DLL under target\x86_64-pc-windows-msvc\release\).
+  Self-elevates (UAC). Copies the DLL into "%ProgramFiles%\ainuKey" and registers
+  it. The profile registers under the Japanese langid and is enabled by default,
+  so NO per-user step is needed — ainuKey appears in the input switcher under
+  Japanese. (Registering it *as Ainu* needs custom-language provisioning that
+  Windows doesn't support out of the box; tracked separately.)
 
-  Copies the DLL into "%ProgramFiles%\ainuKey" — a location every app, including
-  UWP / Store apps (AppContainer), is allowed to load from — and registers it
-  with regsvr32. Do NOT register the DLL from the \\wsl.localhost\ share: UWP
-  apps cannot load from it and it is slow.
-
-  Self-elevates (a UAC prompt appears), because registration writes machine COM
-  keys and the TSF profile.
+  Handles the common "DLL is locked because it's still loaded" case by renaming
+  the old DLL before copying the new one.
 
   Usage:
     .\install.ps1              # install + register
@@ -19,7 +17,7 @@
 param([switch]$Uninstall)
 $ErrorActionPreference = 'Stop'
 
-# --- self-elevate if not already admin ---
+# --- self-elevate if needed ---
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"")
@@ -31,37 +29,42 @@ if (-not $isAdmin) {
 $installDir = Join-Path $env:ProgramFiles 'ainuKey'
 $dst        = Join-Path $installDir 'ainukey.dll'
 
-if ($Uninstall) {
-    if (Test-Path $dst) {
-        & regsvr32.exe /u /s $dst
-        Remove-Item $installDir -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "ainuKey unregistered and removed from $installDir"
-    } else {
-        Write-Host "Nothing to uninstall ($dst not found)."
+# Rename a (possibly loaded/locked) DLL out of the way so it can be replaced.
+function Move-LockedAside([string]$path) {
+    if (-not (Test-Path $path)) { return }
+    & regsvr32.exe /u /s $path  # unregister whatever it currently is
+    $old = Join-Path (Split-Path $path) ("ainukey-old-{0}.dll" -f (Get-Random))
+    try {
+        Rename-Item $path $old -Force
+    } catch {
+        throw "$path is locked (still loaded) and could not be renamed. Sign out/in or reboot once to unload it, then retry."
     }
-    Read-Host "Press Enter to close"
+}
+
+if ($Uninstall) {
+    Move-LockedAside $dst
+    Remove-Item $installDir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "ainuKey unregistered and removed."
+    Read-Host "Done. Press Enter to close"
     return
 }
 
-# Locate the built DLL: release-zip layout first, then dev-checkout layout.
-$candidates = @(
+# Locate the built DLL (release-zip layout, or dev checkout).
+$src = @(
     (Join-Path $PSScriptRoot 'ainukey.dll'),
     (Join-Path $PSScriptRoot 'target\x86_64-pc-windows-msvc\release\ainukey.dll')
-)
-$src = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-if (-not $src) {
-    throw "ainukey.dll not found. Looked in:`n  $($candidates -join "`n  ")`nRun .\build.ps1 first (dev), or unzip the release package and run from there."
-}
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if (-not $src) { throw "ainukey.dll not found. Run .\build.ps1 first, or unzip the release." }
 
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
+Move-LockedAside $dst
 Copy-Item $src $dst -Force
-Write-Host "Copied DLL -> $dst"
-Write-Host "Registering (regsvr32 will show a success/failure dialog)..."
+Write-Host "Installed -> $dst"
+Write-Host "Registering (a regsvr32 dialog will report success/failure)..."
 & regsvr32.exe $dst
 
 Write-Host ""
-Write-Host "If registration succeeded: open Notepad, switch input method (Win+Space"
-Write-Host "or the taskbar language button) to 'ainuKey', and type romaji."
-Write-Host "NOTE: v1 registers the profile under the ja-JP langid, so you may need"
-Write-Host "Japanese added under Settings > Time & language > Language for it to appear."
+Write-Host "Switch input method (Win+Space) to ainuKey — listed under Japanese —"
+Write-Host "and type romaji. (If Japanese isn't in your language list, add it under"
+Write-Host "Settings > Time & language > Language.)"
 Read-Host "Press Enter to close"
