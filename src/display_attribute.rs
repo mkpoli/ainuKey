@@ -145,9 +145,17 @@ impl IEnumTfDisplayAttributeInfo_Impl for EnumDisplayAttributeInfo_Impl {
     }
 
     fn Skip(&self, ulcount: u32) -> windows::core::Result<()> {
-        if ulcount >= 1 {
-            self.done.set(true);
+        if ulcount == 0 {
+            return Ok(());
         }
-        Ok(())
+        // Exactly one element exists. If it's already consumed, or more than one
+        // was requested, we cannot skip the full count -> S_FALSE.
+        let already_done = self.done.get();
+        self.done.set(true);
+        if already_done || ulcount > 1 {
+            Err(windows::Win32::Foundation::S_FALSE.into())
+        } else {
+            Ok(())
+        }
     }
 }

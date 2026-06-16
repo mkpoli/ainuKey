@@ -86,9 +86,21 @@ pub struct TextService {
 
 impl TextService {
     pub fn new() -> Self {
+        // Keep the DLL pinned while this object is alive: COM may release the
+        // class factory (dropping its LockServer count) while clients still hold
+        // a TextService, so the object itself must hold a module lock.
+        crate::lock_module();
         Self {
             inner: RefCell::new(TextServiceState::default()),
         }
+    }
+}
+
+impl Drop for TextService {
+    fn drop(&mut self) {
+        // Release the lock taken in `new`, so `DllCanUnloadNow` can succeed once
+        // the last TextService is gone.
+        crate::unlock_module();
     }
 }
 

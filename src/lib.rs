@@ -50,7 +50,15 @@ pub(crate) fn lock_module() {
 }
 
 pub(crate) fn unlock_module() {
-    LOCK_COUNT.fetch_sub(1, Ordering::SeqCst);
+    // Saturate at zero: never let an imbalanced unlock drive the count negative,
+    // which would otherwise let `DllCanUnloadNow` (== 0) miss a real lock.
+    let _ = LOCK_COUNT.fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| {
+        if n > 0 {
+            Some(n - 1)
+        } else {
+            None
+        }
+    });
 }
 
 /// Returns the captured DLL module handle.
@@ -86,6 +94,9 @@ pub unsafe extern "system" fn DllGetClassObject(
     if ppv.is_null() {
         return E_POINTER;
     }
+    if rclsid.is_null() || riid.is_null() {
+        return E_POINTER;
+    }
     unsafe {
         *ppv = std::ptr::null_mut();
         if *rclsid != GUID_TEXT_SERVICE {
@@ -105,7 +116,7 @@ pub unsafe extern "system" fn DllGetClassObject(
 /// COM entry point invoked by the runtime; only reads the module lock count.
 #[no_mangle]
 pub unsafe extern "system" fn DllCanUnloadNow() -> HRESULT {
-    if LOCK_COUNT.load(Ordering::SeqCst) <= 0 {
+    if LOCK_COUNT.load(Ordering::SeqCst) == 0 {
         S_OK
     } else {
         S_FALSE
