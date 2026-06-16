@@ -12,6 +12,8 @@
 //! syllable, splitting the run there is safe — each Ainu run `ainconv` sees is a
 //! whole, valid sub-word.
 
+use crate::config::{Orthography, TuStyle};
+
 /// Vowels, including the acute long forms `ainconv` uses.
 fn is_vowel(c: char) -> bool {
     matches!(c, 'a' | 'i' | 'u' | 'e' | 'o' | 'á' | 'í' | 'ú' | 'é' | 'ó')
@@ -93,9 +95,20 @@ fn convert_run(run: &str) -> String {
     .unwrap_or(safe)
 }
 
-/// Convert romaji to katakana, handling voiced/loanword syllables `ainconv`
-/// cannot, and delegating canonical-Ainu runs to `ainconv`.
+/// Convert romaji to katakana with the default notation options. A stable
+/// convenience entry point; the IME passes explicit options via `convert_with`,
+/// so this is currently used only by tests.
+#[allow(dead_code)]
 pub fn convert(latn: &str) -> String {
+    convert_with(latn, &Orthography::default())
+}
+
+/// Convert romaji to katakana, applying notation options on top of the default
+/// conversion:
+/// * `show_equals_boundary` — keep the `=` morpheme boundary (ainconv strips it),
+/// * `small_glides` — render coda `y`/`w` as small ィ/ゥ (ainconv collapses to イ/ウ),
+/// * `tu_style` — render the `tu` mora as ツ゚ instead of ト゚.
+pub fn convert_with(latn: &str, ortho: &Orthography) -> String {
     let chars: Vec<char> = latn.chars().collect();
     let mut out = String::new();
     let mut run = String::new(); // accumulates a canonical-Ainu run for ainconv
@@ -128,10 +141,37 @@ pub fn convert(latn: &str) -> String {
                 continue;
             }
         }
+        // `=` morpheme boundary: ainconv strips it, so decide here.
+        if c == '=' {
+            flush(&mut run, &mut out);
+            if ortho.show_equals_boundary {
+                out.push('=');
+            }
+            i += 1;
+            continue;
+        }
+        // Coda glide: `y`/`w` after a vowel and not before a vowel. ainconv
+        // collapses these to イ/ウ; with `small_glides` we keep the small kana.
+        if ortho.small_glides
+            && (c == 'y' || c == 'w')
+            && i > 0
+            && is_vowel(chars[i - 1])
+            && (i + 1 >= chars.len() || !is_vowel(chars[i + 1]))
+        {
+            flush(&mut run, &mut out);
+            out.push(if c == 'y' { 'ィ' } else { 'ゥ' });
+            i += 1;
+            continue;
+        }
         run.push(c);
         i += 1;
     }
     flush(&mut run, &mut out);
+
+    // `tu` is the only source of ト゚, so this swap is unambiguous.
+    if ortho.tu_style == TuStyle::Tsu {
+        out = out.replace("ト゚", "ツ゚");
+    }
     out
 }
 
@@ -345,5 +385,70 @@ mod tests {
         // glottal mid-word, and as a bare/leading char — must not panic
         let _ = convert("\u{2019}");
         let _ = convert("nispa\u{2019}");
+    }
+
+    // ---- Orthography / notation options (convert_with). ----
+    use super::convert_with;
+    use crate::config::{Orthography, TuStyle};
+
+    fn ortho(f: impl FnOnce(&mut Orthography)) -> Orthography {
+        let mut o = Orthography::default();
+        f(&mut o);
+        o
+    }
+
+    #[test]
+    fn default_orthography_matches_plain_convert() {
+        for w in ["aynutaimuzu", "kamuy", "tumpu", "a=kor", "irankarapte"] {
+            assert_eq!(convert_with(w, &Orthography::default()), convert(w), "{w}");
+        }
+    }
+
+    #[test]
+    fn tu_style_tsu() {
+        // ainconv renders `tu` as ト゚; the Tsu option swaps it to ツ゚.
+        assert_eq!(convert("tu"), "ト゚");
+        assert_eq!(
+            convert_with("tu", &ortho(|o| o.tu_style = TuStyle::Tsu)),
+            "ツ゚"
+        );
+        assert_eq!(
+            convert_with("tumpu", &ortho(|o| o.tu_style = TuStyle::Tsu)),
+            "ツ゚ㇺプ"
+        );
+    }
+
+    #[test]
+    fn small_glides() {
+        // Coda y/w collapse to イ/ウ by default; the option keeps the small kana.
+        assert_eq!(convert("kamuy"), "カムイ");
+        assert_eq!(
+            convert_with("kamuy", &ortho(|o| o.small_glides = true)),
+            "カムィ"
+        );
+        assert_eq!(
+            convert_with("ay", &ortho(|o| o.small_glides = true)),
+            "アィ"
+        );
+        // onset y/w (followed by a vowel) is unaffected
+        assert_eq!(convert_with("ya", &ortho(|o| o.small_glides = true)), "ヤ");
+        assert_eq!(
+            convert_with("yaywa", &ortho(|o| o.small_glides = true)),
+            "ヤィワ"
+        );
+    }
+
+    #[test]
+    fn equals_boundary() {
+        // ainconv strips `=`; with the option it's kept between the katakana.
+        assert_eq!(convert("a=kor"), "アコㇿ"); // default: stripped
+        assert_eq!(
+            convert_with("a=kor", &ortho(|o| o.show_equals_boundary = true)),
+            "ア=コㇿ"
+        );
+        assert_eq!(
+            convert_with("ku=kor", &ortho(|o| o.show_equals_boundary = true)),
+            "ク=コㇿ"
+        );
     }
 }
