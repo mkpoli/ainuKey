@@ -15,6 +15,22 @@ use crate::{lock_module, unlock_module};
 #[implement(IClassFactory)]
 pub struct ClassFactory;
 
+impl ClassFactory {
+    /// Build the class factory, pinning the module while it is alive: per COM,
+    /// the DLL must not unload while a client still holds the class object.
+    pub fn new() -> Self {
+        lock_module();
+        ClassFactory
+    }
+}
+
+impl Drop for ClassFactory {
+    fn drop(&mut self) {
+        // Balance the lock taken in `new`.
+        unlock_module();
+    }
+}
+
 impl IClassFactory_Impl for ClassFactory_Impl {
     fn CreateInstance(
         &self,
