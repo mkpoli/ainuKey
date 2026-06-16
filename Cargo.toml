@@ -1,6 +1,6 @@
 [package]
 name = "ainukey"
-version = "0.1.0"
+version = "0.2.1"
 edition = "2021"
 description = "ainuKey — Ainu language IME for Windows (TSF)"
 authors = ["mkpoli <mkpoli@mkpo.li>"]
@@ -41,7 +41,10 @@ features = [
 
     # --- Keyboard input decode ---
     "Win32_UI_Input_KeyboardAndMouse",   # GetKeyboardState, ToUnicode, VK_* virtual-key codes
-    "Win32_UI_WindowsAndMessaging",      # (vkey constants / message plumbing reachable here too)
+    "Win32_UI_WindowsAndMessaging",      # window class/create/show, GetGUIThreadInfo, WM_*/WS_* consts
+
+    # --- Candidate window rendering ---
+    "Win32_Graphics_Gdi",                # BeginPaint/EndPaint, FillRect, DrawTextW, fonts, HDC/HBRUSH
 
     # --- Localization (profile langid) ---
     "Win32_Globalization",               # LocaleNameToLCID (resolve "ja-JP" for RegisterProfile langid)
