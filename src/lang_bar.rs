@@ -90,9 +90,12 @@ impl ITfLangBarItem_Impl for ModeButton_Impl {
     }
 
     fn GetTooltipString(&self) -> windows::core::Result<BSTR> {
+        // ainuKey = "Aynu itak aeynuyep" (Ainu-language IME; glossary: aeynuyep).
+        // katakana/Latin have no coined Ainu term, so the script names are kept;
+        // the message is trilingual (Ainu name + 日本語 + English).
         Ok(BSTR::from(match self.mode.get() {
-            Mode::Kana => "ainuKey — katakana mode (click for Latin)",
-            Mode::Latin => "ainuKey — Latin mode (click for katakana)",
+            Mode::Kana => "ainuKey — カタカナ katakana（クリックでローマ字 / click for Latin）",
+            Mode::Latin => "ainuKey — ローマ字 Latin（クリックでカタカナ / click for katakana）",
         }))
     }
 }
