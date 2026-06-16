@@ -22,6 +22,7 @@ mod key_event_sink;
 mod lang_bar;
 mod registry;
 mod romaji;
+mod settings_dialog;
 mod suggest;
 mod text_input_processor;
 mod text_service;
