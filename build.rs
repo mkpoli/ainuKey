@@ -22,4 +22,32 @@ fn main() {
         let def = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("ainuKey.def");
         println!("cargo:rustc-cdylib-link-arg=/DEF:{}", def.display());
     }
+
+    provide_ngrams_table();
+}
+
+/// Provide the n-gram suggestion table to `OUT_DIR` for `include_bytes!`.
+///
+/// The committed `data/ngrams.bin` (aggregate counts derived from `ainu-corpora`,
+/// cleared for distribution — see `data/README.md`) is copied to `OUT_DIR`. If it
+/// is ever absent (e.g. deleted locally), an EMPTY table is embedded instead so
+/// the crate still builds — just with suggestions disabled.
+fn provide_ngrams_table() {
+    use std::path::Path;
+    println!("cargo:rerun-if-changed=data/ngrams.bin");
+    let out = std::env::var("OUT_DIR").expect("OUT_DIR");
+    let dst = Path::new(&out).join("ngrams.bin");
+    let local = Path::new(env!("CARGO_MANIFEST_DIR")).join("data/ngrams.bin");
+    if local.exists() {
+        std::fs::copy(&local, &dst).expect("copy ngrams.bin to OUT_DIR");
+    } else {
+        // Empty v2 table: magic, version=2, 0 unigrams, 0 bigram-ctx, 0 trigram-ctx.
+        let mut empty = Vec::with_capacity(20);
+        empty.extend(b"AKNG");
+        empty.extend(2u32.to_le_bytes());
+        empty.extend(0u32.to_le_bytes());
+        empty.extend(0u32.to_le_bytes());
+        empty.extend(0u32.to_le_bytes());
+        std::fs::write(&dst, empty).expect("write empty ngrams.bin");
+    }
 }
