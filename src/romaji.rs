@@ -441,4 +441,25 @@ mod tests {
                                                 // `Chishi` → `cishi`? No: `chi`→`ci`, then `shi`→`si` (onset after `i`).
         assert_eq!(normalize("Chishi"), "cisi");
     }
+
+    #[test]
+    fn whitespace_is_an_onset_boundary() {
+        // A consonant right after whitespace begins a new word → true onset, so
+        // `ti`/`shi` fold even though the char before the space was a coda.
+        assert_eq!(normalize("kar ti"), "kar ci");
+        assert_eq!(normalize("kar shi"), "kar si");
+    }
+
+    #[test]
+    fn shi_after_morpheme_boundary_folds() {
+        // `=` is an onset boundary, so `s` after it is an onset and `shi`→`si`.
+        assert_eq!(normalize("a=shino"), "a=sino");
+    }
+
+    #[test]
+    fn circumflex_caps_fold_then_map() {
+        // Uppercase circumflex: lowercase (Phase 1) then circumflex→acute (Phase 2).
+        assert_eq!(normalize("KÂNI"), "káni");
+        assert_eq!(normalize("SÎNO"), "síno");
+    }
 }
