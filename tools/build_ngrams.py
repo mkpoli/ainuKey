@@ -26,6 +26,7 @@ import re
 import struct
 import sys
 from collections import Counter
+from itertools import pairwise
 from pathlib import Path
 
 DEFAULT_CORPUS = Path("../ainu-corpora/data.jsonl")
@@ -83,8 +84,10 @@ def build(corpus: Path):
             n += 1
             toks = tokenize(text)
             uni.update(toks)
-            for a, b in zip(toks, toks[1:]):
+            for a, b in pairwise(toks):
                 bi.setdefault(a, Counter())[b] += 1
+            # NB: the three slices have lengths n, n-1, n-2 — deliberately
+            # unequal, so `strict=True` is wrong here; plain zip stops at n-2.
             for a, b, c in zip(toks, toks[1:], toks[2:]):
                 tri.setdefault((a, b), Counter())[c] += 1
     print(
@@ -97,7 +100,8 @@ def build(corpus: Path):
 
 def write_str(buf: bytearray, s: str) -> None:
     b = s.encode("utf-8")
-    assert len(b) < 256, s
+    if len(b) >= 256:
+        raise ValueError(f"string exceeds the 255-byte length prefix (got {len(b)}): {s!r}")
     buf.append(len(b))
     buf.extend(b)
 
@@ -161,6 +165,15 @@ def main() -> int:
     ap.add_argument("--corpus", type=Path, default=DEFAULT_CORPUS)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = ap.parse_args()
+
+    if not args.corpus.exists():
+        print(
+            f"corpus not found: {args.corpus}\n"
+            f"(the default is one developer's layout — pass --corpus PATH to "
+            f"point at your ainu-corpora data.jsonl)",
+            file=sys.stderr,
+        )
+        return 1
 
     uni, bi, tri = build(args.corpus)
     data = serialize(uni, bi, tri)
