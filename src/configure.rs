@@ -7,12 +7,11 @@
 //! `TextService`, which now also implements these three interfaces) and calling
 //! `GetFunction(_, IID_ITfFnConfigure)` → `ITfFnConfigure::Show`.
 
-use windows::core::{w, IUnknown, IUnknownImpl, Interface, BSTR, GUID};
+use windows::core::{IUnknown, IUnknownImpl, Interface, BSTR, GUID};
 use windows::Win32::Foundation::{E_NOINTERFACE, HWND};
 use windows::Win32::UI::TextServices::{
     ITfFnConfigure, ITfFnConfigure_Impl, ITfFunctionProvider_Impl, ITfFunction_Impl,
 };
-use windows::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
 
 use crate::guids::GUID_TEXT_SERVICE;
 use crate::text_service::TextService_Impl;
@@ -54,25 +53,8 @@ impl ITfFnConfigure_Impl for TextService_Impl {
         _langid: u16,
         _rguidprofile: *const GUID,
     ) -> windows::core::Result<()> {
-        // SAFETY: hwndparent may be null (a valid "no owner"); the strings are
-        // static NUL-terminated literals.
-        unsafe {
-            // Trilingual (Ainu name + 日本語 + English). Ainu terms are from the
-            // itak.aynu.org glossary: aeynuyep = IME (< まぽ), iyanu = settings.
-            MessageBoxW(
-                Some(hwndparent),
-                w!("ainuKey — Aynu itak aeynuyep\r\n\
-                    アイヌ語入力（IME） / Ainu-language IME\r\n\r\n\
-                    ・ローマ字を入力し、Space/Enter でカタカナに変換します。\r\n\
-                    Type romaji; Space/Enter converts to Ainu katakana.\r\n\
-                    ・ti → ci のような寛容な入力 / forgiving input (ti → ci).\r\n\
-                    ・候補: ↑/↓ で選択、1–9 で確定 / suggestions: ↑/↓, 1–9.\r\n\
-                    ・言語バーでカタカナ／ローマ字を切替 / toggle katakana / Latin.\r\n\r\n\
-                    iyanu / 設定 / settings — more coming soon."),
-                w!("ainuKey — iyanu（設定 / settings）"),
-                MB_OK | MB_ICONINFORMATION,
-            );
-        }
+        // Open the native settings dialog (checkboxes bound to config.toml).
+        crate::settings_dialog::show(hwndparent);
         Ok(())
     }
 }
