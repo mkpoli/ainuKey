@@ -151,6 +151,30 @@ impl Suggestions {
         self.next_words(prev1)
     }
 
+    /// Blended next-word scores (stupid-backoff style): the trigram context
+    /// (`prev2 prev1`) and the bigram context (`prev1`) are each normalized to
+    /// `[0,1]` by their top count, then combined — trigram fully, bigram at
+    /// `ALPHA` — so a strong bigram prediction still surfaces when the trigram is
+    /// sparse (the hard backoff in [`predict`](Self::predict) ignored the bigram
+    /// entirely once any trigram match existed). Higher = more likely to follow.
+    pub fn predict_scores(&self, prev2: Option<&str>, prev1: &str) -> HashMap<String, f64> {
+        const ALPHA: f64 = 0.4;
+        fn add(scores: &mut HashMap<String, f64>, entries: &[(String, u32)], weight: f64) {
+            let max = entries.iter().map(|(_, c)| *c).max().unwrap_or(0).max(1) as f64;
+            for (w, c) in entries {
+                *scores.entry(w.clone()).or_insert(0.0) += weight * (*c as f64 / max);
+            }
+        }
+        let mut scores = HashMap::new();
+        add(&mut scores, self.next_words(prev1), ALPHA);
+        if let Some(p2) = prev2 {
+            if let Some(v) = self.trigrams.get(&format!("{p2} {prev1}")) {
+                add(&mut scores, v, 1.0);
+            }
+        }
+        scores
+    }
+
     /// The `n` most frequent words overall (default suggestions on empty input).
     pub fn default_words(&self, n: usize) -> &[(String, u32)] {
         &self.unigrams[..n.min(self.unigrams.len())]
@@ -252,6 +276,23 @@ mod tests {
         assert_eq!(s.predict(None, "ruwe")[0].0, "ne");
         // Unknown everywhere -> empty (caller uses default_words).
         assert!(s.predict(Some("x"), "y").is_empty());
+    }
+
+    #[test]
+    fn predict_scores_blends_trigram_and_bigram() {
+        let s = Suggestions::load(&synth()).expect("valid");
+        let sc = s.predict_scores(Some("ruwe"), "ne");
+        let na = sc.get("na").copied().unwrap_or(0.0);
+        let wa = sc.get("wa").copied().unwrap_or(0.0);
+        // "na" is in BOTH the trigram (ruwe ne → na) and the bigram (ne → na),
+        // so it beats "wa" (trigram only) and exceeds its trigram-only weight of
+        // 1.0 — the bigram still contributes (the old hard backoff dropped it).
+        assert!(na > wa, "na={na} wa={wa}");
+        assert!(na > 1.0, "bigram should add to na: {na}");
+        // No prev2 → bigram only (ne → na).
+        assert!(s.predict_scores(None, "ne").contains_key("na"));
+        // Unknown context → empty.
+        assert!(s.predict_scores(Some("x"), "y").is_empty());
     }
 
     #[test]
