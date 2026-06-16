@@ -11,8 +11,8 @@ use windows::Win32::System::Variant::{
 };
 use windows::Win32::UI::TextServices::{
     ITfComposition, ITfCompositionSink, ITfCompositionSink_Impl, ITfContext, ITfContextComposition,
-    ITfInsertAtSelection, GUID_PROP_ATTRIBUTE, TF_AE_NONE, TF_ANCHOR_END, TF_IAS_QUERYONLY,
-    TF_SELECTION, TF_SELECTIONSTYLE, TF_ST_CORRECTION,
+    ITfInsertAtSelection, ITfRange, GUID_PROP_ATTRIBUTE, TF_AE_NONE, TF_ANCHOR_END,
+    TF_IAS_QUERYONLY, TF_SELECTION, TF_SELECTIONSTYLE, TF_ST_CORRECTION,
 };
 
 use crate::edit_session::run_sync;
@@ -32,6 +32,33 @@ fn variant_i4(value: i32) -> VARIANT {
             }),
         },
     }
+}
+
+/// Set the selection to a single collapsed range.
+///
+/// `TF_SELECTION::range` is `ManuallyDrop<Option<ITfRange>>` (an FFI struct), so
+/// the `ITfRange` we clone into it leaks on every call if the struct simply goes
+/// out of scope. `SetSelection` takes its own reference to anything it keeps, so
+/// we release our clone immediately afterwards.
+///
+/// # Safety
+/// `ec` must be a valid edit cookie for `ctx` inside an edit session.
+unsafe fn set_single_selection(
+    ctx: &ITfContext,
+    ec: u32,
+    range: &ITfRange,
+) -> windows::core::Result<()> {
+    let mut selection = TF_SELECTION {
+        range: ManuallyDrop::new(Some(range.clone())),
+        style: TF_SELECTIONSTYLE {
+            ase: TF_AE_NONE,
+            fInterimChar: false.into(),
+        },
+    };
+    let result = ctx.SetSelection(ec, std::slice::from_ref(&selection));
+    // Release the cloned ITfRange we stored in the ManuallyDrop field.
+    ManuallyDrop::drop(&mut selection.range);
+    result
 }
 
 impl TextService_Impl {
@@ -121,14 +148,7 @@ impl TextService_Impl {
 
                 // Collapse caret to end of preedit.
                 range.Collapse(ec, TF_ANCHOR_END)?;
-                let selection = TF_SELECTION {
-                    range: ManuallyDrop::new(Some(range.clone())),
-                    style: TF_SELECTIONSTYLE {
-                        ase: TF_AE_NONE,
-                        fInterimChar: false.into(),
-                    },
-                };
-                ctx.SetSelection(ec, &[selection])?;
+                set_single_selection(&ctx, ec, &range)?;
                 Ok(())
             }
         })?;
@@ -160,14 +180,7 @@ impl TextService_Impl {
                 range.SetText(ec, TF_ST_CORRECTION, &kana)?;
                 ctx.GetProperty(&GUID_PROP_ATTRIBUTE)?.Clear(ec, &range)?;
                 range.Collapse(ec, TF_ANCHOR_END)?;
-                let selection = TF_SELECTION {
-                    range: ManuallyDrop::new(Some(range.clone())),
-                    style: TF_SELECTIONSTYLE {
-                        ase: TF_AE_NONE,
-                        fInterimChar: false.into(),
-                    },
-                };
-                ctx.SetSelection(ec, &[selection])?;
+                set_single_selection(&ctx, ec, &range)?;
                 comp.EndComposition(ec)?;
                 Ok(())
             }
