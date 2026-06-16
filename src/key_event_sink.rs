@@ -11,6 +11,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 };
 use windows::Win32::UI::TextServices::{ITfContext, ITfKeyEventSink_Impl};
 
+use crate::lang_bar::Mode;
 use crate::text_service::TextService_Impl;
 
 /// A decoded keystroke action.
@@ -98,7 +99,9 @@ impl TextService_Impl {
         let action = decode(wparam, lparam);
         let has_composition = !self.inner().buffer.is_empty();
         match action {
-            Action::Insert(_) => true,
+            // In Latin mode we eat nothing, so letters pass straight through to
+            // the app; in Kana mode we capture them to build the composition.
+            Action::Insert(_) => self.inner().mode.get() == Mode::Kana,
             Action::Commit
             | Action::Backspace
             | Action::Cancel
