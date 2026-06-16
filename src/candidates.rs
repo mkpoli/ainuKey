@@ -249,4 +249,59 @@ mod tests {
         assert_eq!(c.current(), Some(c.items()[n - 1].as_str()));
         assert!(!c.select_index(n)); // out of range
     }
+
+    #[test]
+    fn default_list_is_empty() {
+        let c = CandidateList::default();
+        assert!(c.is_empty());
+        assert_eq!(c.len(), 0);
+        assert_eq!(c.current(), None);
+    }
+
+    #[test]
+    fn word_with_no_completions_is_just_the_word() {
+        let s = suggest();
+        // No unigram starts with "xyz", so the list is the typed word alone.
+        let c = CandidateList::build(None, None, "xyz", &s, 8);
+        assert_eq!(c.items(), &["xyz".to_string()]);
+        assert_eq!(c.current(), Some("xyz"));
+    }
+
+    #[test]
+    fn max_one_keeps_only_typed_word() {
+        let s = suggest();
+        let c = CandidateList::build(None, None, "kam", &s, 1);
+        assert_eq!(c.len(), 1);
+        assert_eq!(c.items()[0], "kam");
+    }
+
+    #[test]
+    fn selection_is_noop_on_empty_list() {
+        let mut c = CandidateList::default();
+        c.select_next();
+        c.select_prev();
+        assert_eq!(c.selected(), 0);
+        assert_eq!(c.current(), None);
+        assert!(!c.select_index(0)); // nothing to select
+    }
+
+    #[test]
+    fn out_of_range_index_keeps_current_selection() {
+        let s = suggest();
+        let mut c = CandidateList::build(None, None, "ka", &s, 8);
+        assert!(c.select_index(1));
+        assert_eq!(c.selected(), 1);
+        assert!(!c.select_index(999)); // rejected
+        assert_eq!(c.selected(), 1); // unchanged
+    }
+
+    #[test]
+    fn no_duplicate_candidates() {
+        let s = suggest();
+        let c = CandidateList::build(None, None, "ka", &s, 8);
+        let mut uniq = c.items().to_vec();
+        uniq.sort();
+        uniq.dedup();
+        assert_eq!(uniq.len(), c.len(), "candidate list must be duplicate-free");
+    }
 }
