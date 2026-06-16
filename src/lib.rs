@@ -11,6 +11,7 @@
 mod candidate_window;
 mod candidates;
 mod composition;
+mod config;
 mod configure;
 mod display_attribute;
 mod edit_session;
