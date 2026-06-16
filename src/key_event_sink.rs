@@ -93,12 +93,12 @@ fn decode(wparam: WPARAM, lparam: LPARAM) -> Action {
 }
 
 impl TextService_Impl {
-    /// Pure prediction: whether a key would be eaten. Must agree with
-    /// `OnKeyDown`'s decision.
-    fn would_eat(&self, wparam: WPARAM, lparam: LPARAM) -> bool {
+    /// Pure prediction: the decoded action and whether it would be eaten.
+    /// Returning the action lets `OnKeyDown` reuse it instead of decoding twice.
+    fn would_eat(&self, wparam: WPARAM, lparam: LPARAM) -> (bool, Action) {
         let action = decode(wparam, lparam);
         let has_composition = !self.inner().buffer.is_empty();
-        match action {
+        let eaten = match action {
             // In Latin mode we eat nothing, so letters pass straight through to
             // the app; in Kana mode we capture them to build the composition.
             Action::Insert(_) => self.inner().mode.get() == Mode::Kana,
@@ -109,7 +109,8 @@ impl TextService_Impl {
             | Action::SelectPrev
             | Action::SelectIndex(_) => has_composition,
             Action::Passthrough => false,
-        }
+        };
+        (eaten, action)
     }
 }
 
@@ -124,7 +125,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         wparam: WPARAM,
         lparam: LPARAM,
     ) -> windows::core::Result<BOOL> {
-        Ok(self.would_eat(wparam, lparam).into())
+        Ok(self.would_eat(wparam, lparam).0.into())
     }
 
     fn OnTestKeyUp(
@@ -146,9 +147,8 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             Some(c) => c.clone(),
             None => return Ok(false.into()),
         };
-        let eaten = self.would_eat(wparam, lparam);
+        let (eaten, action) = self.would_eat(wparam, lparam);
         if eaten {
-            let action = decode(wparam, lparam);
             self.handle_action(&context, action)?;
         }
         Ok(eaten.into())
