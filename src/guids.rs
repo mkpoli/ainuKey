@@ -1,7 +1,8 @@
 //! Hardcoded GUIDs / names / locale constants for ainuKey.
 //!
-//! From IDENTITY (authoritative). The two service GUIDs differ only in the last
-//! hex digit of the third group (`…CB` vs `…CC`).
+//! From IDENTITY (authoritative). These GUIDs share one body and differ only in
+//! the last hex digit of the first group (Data1): `…EB` (text service), `…EC`
+//! (profile), `…ED` (display attribute), `…EF` (langbar item).
 
 use windows::core::{w, GUID, PCWSTR};
 
