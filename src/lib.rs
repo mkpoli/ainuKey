@@ -105,7 +105,7 @@ pub unsafe extern "system" fn DllGetClassObject(
         // Build the factory and QI it into the out-param. `query` performs the
         // AddRef; the local `factory` handle's Drop performs the matching
         // Release; net refcount on the returned pointer is exactly 1.
-        let factory: IClassFactory = ClassFactory.into();
+        let factory: IClassFactory = ClassFactory::new().into();
         factory.query(riid, ppv)
     }
 }
