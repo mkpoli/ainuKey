@@ -16,6 +16,7 @@ mod display_attribute;
 mod edit_session;
 mod factory;
 mod guids;
+mod kana;
 mod key_event_sink;
 mod lang_bar;
 mod registry;

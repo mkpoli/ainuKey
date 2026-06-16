@@ -101,10 +101,9 @@ impl TextService_Impl {
 
     fn update_preedit(&self, context: &ITfContext) -> windows::core::Result<()> {
         let comp = self.inner().composition.clone().ok_or(E_FAIL)?;
-        let kana: Vec<u16> =
-            ainconv::convert_latn_to_kana(&crate::romaji::normalize(&self.inner().buffer))
-                .encode_utf16()
-                .collect();
+        let kana: Vec<u16> = crate::kana::convert(&crate::romaji::normalize(&self.inner().buffer))
+            .encode_utf16()
+            .collect();
         let atom = self.inner().display_attribute_atom as i32;
         let cid = self.inner().client_id;
         let ctx = context.clone();
@@ -150,9 +149,7 @@ impl TextService_Impl {
             .current()
             .map(str::to_string)
             .unwrap_or_else(|| crate::romaji::normalize(&self.inner().buffer));
-        let kana: Vec<u16> = ainconv::convert_latn_to_kana(&chosen)
-            .encode_utf16()
-            .collect();
+        let kana: Vec<u16> = crate::kana::convert(&chosen).encode_utf16().collect();
         let cid = self.inner().client_id;
         let ctx = context.clone();
 
@@ -262,7 +259,7 @@ impl TextService_Impl {
                 .candidates
                 .items()
                 .iter()
-                .map(|w| ainconv::convert_latn_to_kana(w))
+                .map(|w| crate::kana::convert(w))
                 .collect();
             (display, state.candidates.selected())
         };
