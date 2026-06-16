@@ -8,12 +8,16 @@
 
 #![allow(non_snake_case)]
 
+mod candidate_window;
+mod candidates;
 mod composition;
+mod configure;
 mod display_attribute;
 mod edit_session;
 mod factory;
 mod guids;
 mod key_event_sink;
+mod lang_bar;
 mod registry;
 mod romaji;
 mod suggest;
