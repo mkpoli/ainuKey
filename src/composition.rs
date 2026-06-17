@@ -128,11 +128,16 @@ impl TextService_Impl {
 
     fn update_preedit(&self, context: &ITfContext) -> windows::core::Result<()> {
         let comp = self.inner().composition.clone().ok_or(E_FAIL)?;
-        let ortho = crate::config::current().orthography;
-        let kana: Vec<u16> =
-            crate::kana::convert_with(&crate::romaji::normalize(&self.inner().buffer), &ortho)
-                .encode_utf16()
-                .collect();
+        let cfg = crate::config::current();
+        let romaji = crate::romaji::normalize(&self.inner().buffer);
+        // Romaji-input mode shows the typed romaji and defers katakana conversion
+        // to commit; otherwise the preedit is the converted katakana.
+        let preedit = if cfg.input.romaji_input_mode {
+            romaji
+        } else {
+            crate::kana::convert_with(&romaji, &cfg.orthography)
+        };
+        let kana: Vec<u16> = preedit.encode_utf16().collect();
         let atom = self.inner().display_attribute_atom as i32;
         let cid = self.inner().client_id;
         let ctx = context.clone();
@@ -254,15 +259,18 @@ impl TextService_Impl {
                 state.last_committed.clone(),
             )
         };
-        let list = match crate::suggest::global() {
-            Some(s) => crate::candidates::CandidateList::build(
-                prev2.as_deref(),
-                prev1.as_deref(),
-                &norm,
-                s,
-                9,
-            ),
-            None => crate::candidates::CandidateList::default(),
+        let sug = crate::config::current().suggestions;
+        let list = match (sug.enabled, crate::suggest::global()) {
+            (true, Some(s)) => {
+                // Context-aware off → ignore the committed-word history.
+                let (p2, p1) = if sug.context_aware {
+                    (prev2.as_deref(), prev1.as_deref())
+                } else {
+                    (None, None)
+                };
+                crate::candidates::CandidateList::build(p2, p1, &norm, s, sug.max_candidates)
+            }
+            _ => crate::candidates::CandidateList::default(),
         };
         self.inner_mut().candidates = list;
         self.show_candidates();
