@@ -128,9 +128,11 @@ impl TextService_Impl {
 
     fn update_preedit(&self, context: &ITfContext) -> windows::core::Result<()> {
         let comp = self.inner().composition.clone().ok_or(E_FAIL)?;
-        let kana: Vec<u16> = crate::kana::convert(&crate::romaji::normalize(&self.inner().buffer))
-            .encode_utf16()
-            .collect();
+        let ortho = crate::config::current().orthography;
+        let kana: Vec<u16> =
+            crate::kana::convert_with(&crate::romaji::normalize(&self.inner().buffer), &ortho)
+                .encode_utf16()
+                .collect();
         let atom = self.inner().display_attribute_atom as i32;
         let cid = self.inner().client_id;
         let ctx = context.clone();
@@ -169,7 +171,10 @@ impl TextService_Impl {
             .current()
             .map(str::to_string)
             .unwrap_or_else(|| crate::romaji::normalize(&self.inner().buffer));
-        let kana: Vec<u16> = crate::kana::convert(&chosen).encode_utf16().collect();
+        let kana: Vec<u16> =
+            crate::kana::convert_with(&chosen, &crate::config::current().orthography)
+                .encode_utf16()
+                .collect();
         let cid = self.inner().client_id;
         let ctx = context.clone();
 
@@ -266,13 +271,14 @@ impl TextService_Impl {
     /// (Re)show the candidate window from the stored list, converting each
     /// candidate to katakana for display. Hides it when the list is empty.
     fn show_candidates(&self) {
+        let ortho = crate::config::current().orthography;
         let (display, selected): (Vec<String>, usize) = {
             let state = self.inner();
             let display = state
                 .candidates
                 .items()
                 .iter()
-                .map(|w| crate::kana::convert(w))
+                .map(|w| crate::kana::convert_with(w, &ortho))
                 .collect();
             (display, state.candidates.selected())
         };

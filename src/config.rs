@@ -163,6 +163,32 @@ impl Config {
     }
 }
 
+use std::sync::RwLock;
+
+/// Process-wide cached config. `None` until first use / a `reload`.
+static GLOBAL: RwLock<Option<Config>> = RwLock::new(None);
+
+/// The current config, loaded from disk lazily and cached. Cheap to call (clones
+/// a small struct); used on the hot input path.
+pub fn current() -> Config {
+    if let Ok(g) = GLOBAL.read() {
+        if let Some(c) = g.as_ref() {
+            return c.clone();
+        }
+    }
+    reload()
+}
+
+/// Re-read the config from disk and refresh the cache. Call at activation and
+/// after the settings GUI writes the file.
+pub fn reload() -> Config {
+    let c = Config::load();
+    if let Ok(mut g) = GLOBAL.write() {
+        *g = Some(c.clone());
+    }
+    c
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
