@@ -59,17 +59,17 @@ impl CandidateList {
         // Context boost: prefer completions the trigram/bigram model predicts
         // after (prev2, prev1).
         if let Some(prev1) = prev1 {
-            let boost: std::collections::HashMap<&str, u32> = suggest
-                .predict(prev2, prev1)
-                .iter()
-                .map(|(w, c)| (w.as_str(), *c))
-                .collect();
-            // Stable order: predicted-next completions first (by predict weight),
-            // then the remaining completions by their own frequency.
+            // Blended trigram+bigram score (stupid-backoff) so a strong bigram
+            // prediction still ranks when the trigram is sparse.
+            let boost = suggest.predict_scores(prev2, prev1);
+            // Stable order: context-predicted completions first (by blended
+            // score), then the remaining completions by their own frequency.
             completions.sort_by(|a, b| {
-                let ba = boost.get(a.0.as_str()).copied().unwrap_or(0);
-                let bb = boost.get(b.0.as_str()).copied().unwrap_or(0);
-                bb.cmp(&ba).then_with(|| b.1.cmp(&a.1))
+                let ba = boost.get(&a.0).copied().unwrap_or(0.0);
+                let bb = boost.get(&b.0).copied().unwrap_or(0.0);
+                bb.partial_cmp(&ba)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+                    .then_with(|| b.1.cmp(&a.1))
             });
         }
 
