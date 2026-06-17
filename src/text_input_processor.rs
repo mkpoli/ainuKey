@@ -112,6 +112,9 @@ impl ITfTextInputProcessorEx_Impl for TextService_Impl {
 
 impl TextService_Impl {
     fn setup(&self, thread_mgr: &ITfThreadMgr, tid: u32) -> windows::core::Result<()> {
+        // Pick up any on-disk config changes (hand-edits or the settings GUI).
+        crate::config::reload();
+
         // Advise the key-event sink (required to receive keystrokes).
         let keystroke: ITfKeystrokeMgr = thread_mgr.cast()?;
         let this_kes: ITfKeyEventSink = self.to_interface();
