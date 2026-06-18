@@ -12,10 +12,11 @@ use std::rc::Rc;
 
 use windows::core::{implement, IUnknown, Interface, Ref, BSTR, GUID, PCWSTR};
 use windows::Win32::Foundation::{E_INVALIDARG, E_NOINTERFACE, HINSTANCE, POINT, RECT};
+use windows::Win32::Graphics::Gdi::HBITMAP;
 use windows::Win32::UI::TextServices::{
     ITfLangBarItem, ITfLangBarItemButton, ITfLangBarItemButton_Impl, ITfLangBarItemSink,
     ITfLangBarItem_Impl, ITfMenu, ITfSource, ITfSource_Impl, TfLBIClick, TF_LANGBARITEMINFO,
-    TF_LBI_ICON, TF_LBI_STYLE_BTN_BUTTON, TF_LBI_TEXT, TF_LBI_TOOLTIP,
+    TF_LBI_ICON, TF_LBI_STYLE_BTN_MENU, TF_LBI_TEXT, TF_LBI_TOOLTIP,
 };
 use windows::Win32::UI::WindowsAndMessaging::{LoadIconW, HICON};
 
@@ -30,6 +31,34 @@ pub enum Mode {
     Kana,
     /// Latin letters pass through unchanged (direct alphabet input).
     Latin,
+}
+
+// Drop-down menu item IDs and (TSF) menu-item flags.
+const MENU_KANA: u32 = 1;
+const MENU_LATIN: u32 = 2;
+const MENU_SETTINGS: u32 = 100;
+const TF_LBMENUF_SEPARATOR: u32 = 0x0000_0004;
+const TF_LBMENUF_RADIOCHECKED: u32 = 0x0000_0008;
+
+/// Add one item to a langbar drop-down menu.
+///
+/// # Safety
+/// `menu` must be a valid `ITfMenu` (supplied by the framework in `InitMenu`).
+unsafe fn add_menu_item(
+    menu: &ITfMenu,
+    id: u32,
+    flags: u32,
+    text: &str,
+) -> windows::core::Result<()> {
+    let wide: Vec<u16> = text.encode_utf16().collect();
+    menu.AddMenuItem(
+        id,
+        flags,
+        HBITMAP::default(),
+        HBITMAP::default(),
+        &wide,
+        std::ptr::null_mut(),
+    )
 }
 
 /// The language-bar toggle button.
@@ -57,6 +86,17 @@ impl ModeButton_Impl {
             Mode::Latin => IDI_MODE_LATN,
         }
     }
+
+    /// Set the mode and notify the langbar sink to repaint the icon/text/tooltip.
+    fn set_mode(&self, mode: Mode) {
+        self.mode.set(mode);
+        if let Some(sink) = self.sink.borrow().as_ref() {
+            // SAFETY: a valid sink advised via AdviseSink.
+            unsafe {
+                let _ = sink.OnUpdate(TF_LBI_ICON | TF_LBI_TEXT | TF_LBI_TOOLTIP);
+            }
+        }
+    }
 }
 
 impl ITfLangBarItem_Impl for ModeButton_Impl {
@@ -73,7 +113,7 @@ impl ITfLangBarItem_Impl for ModeButton_Impl {
             *pinfo = TF_LANGBARITEMINFO {
                 clsidService: GUID_TEXT_SERVICE,
                 guidItem: GUID_LANGBAR_ITEM,
-                dwStyle: TF_LBI_STYLE_BTN_BUTTON,
+                dwStyle: TF_LBI_STYLE_BTN_MENU,
                 ulSort: 0,
                 szDescription: desc,
             };
@@ -107,25 +147,42 @@ impl ITfLangBarItemButton_Impl for ModeButton_Impl {
         _pt: &POINT,
         _prcarea: *const RECT,
     ) -> windows::core::Result<()> {
+        // A bare click (when the framework reports one) still toggles the mode.
         let next = match self.mode.get() {
             Mode::Kana => Mode::Latin,
             Mode::Latin => Mode::Kana,
         };
-        self.mode.set(next);
-        if let Some(sink) = self.sink.borrow().as_ref() {
-            // SAFETY: a valid sink advised via AdviseSink.
-            unsafe {
-                let _ = sink.OnUpdate(TF_LBI_ICON | TF_LBI_TEXT | TF_LBI_TOOLTIP);
-            }
+        self.set_mode(next);
+        Ok(())
+    }
+
+    fn InitMenu(&self, pmenu: Ref<'_, ITfMenu>) -> windows::core::Result<()> {
+        let menu = pmenu.ok()?;
+        let (kana, latin) = match self.mode.get() {
+            Mode::Kana => (TF_LBMENUF_RADIOCHECKED, 0),
+            Mode::Latin => (0, TF_LBMENUF_RADIOCHECKED),
+        };
+        // SAFETY: `menu` is a valid ITfMenu provided by the framework.
+        unsafe {
+            add_menu_item(menu, MENU_KANA, kana, "カタカナ Katakana")?;
+            add_menu_item(menu, MENU_LATIN, latin, "ローマ字 Latin")?;
+            add_menu_item(menu, 0, TF_LBMENUF_SEPARATOR, "")?;
+            add_menu_item(menu, MENU_SETTINGS, 0, "設定 / Settings…")?;
         }
         Ok(())
     }
 
-    fn InitMenu(&self, _pmenu: Ref<'_, ITfMenu>) -> windows::core::Result<()> {
-        Ok(())
-    }
-
-    fn OnMenuSelect(&self, _wid: u32) -> windows::core::Result<()> {
+    fn OnMenuSelect(&self, wid: u32) -> windows::core::Result<()> {
+        match wid {
+            MENU_KANA => self.set_mode(Mode::Kana),
+            MENU_LATIN => self.set_mode(Mode::Latin),
+            // The reachable entry point for the settings dialog on Windows 11,
+            // where the language-settings "Options" is not exposed for TIPs.
+            MENU_SETTINGS => {
+                crate::settings_dialog::show(windows::Win32::Foundation::HWND::default())
+            }
+            _ => {}
+        }
         Ok(())
     }
 
