@@ -189,6 +189,16 @@ pub fn reload() -> Config {
     c
 }
 
+/// Write the default config file if it doesn't exist yet, so it is discoverable
+/// and hand-editable even before the settings GUI is ever opened.
+pub fn ensure_file() {
+    if let Some(p) = Config::path() {
+        if !p.exists() {
+            let _ = Config::default().save_to(&p);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
