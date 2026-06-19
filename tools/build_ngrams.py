@@ -22,12 +22,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 import struct
 import sys
 from collections import Counter
 from itertools import pairwise
 from pathlib import Path
+
+# Tokenizer is shared with the benchmark so both see identical tokens.
+from ngram_lib import tokenize
 
 DEFAULT_CORPUS = Path("../ainu-corpora/data.jsonl")
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "data" / "ngrams.bin"
@@ -36,6 +38,7 @@ MAGIC = b"AKNG"
 VERSION = 2
 
 # Pruning knobs (tuned for a small embedded table with useful coverage).
+# Kept in sync with ngram_lib.PruneCfg.production().
 MAX_UNIGRAMS = 4000  # default-suggestion vocabulary
 MIN_CONTEXT_COUNT = 3  # drop rare bigram contexts
 TOP_K_NEXT = 8  # next-words kept per bigram context
@@ -43,28 +46,6 @@ MIN_NEXT_COUNT = 2  # drop rare bigram continuations
 MIN_TRI_CONTEXT = 4  # drop rare trigram contexts (sparser -> stricter)
 TOP_K_TRI = 6  # next-words kept per trigram context
 MIN_TRI_NEXT = 2  # drop rare trigram continuations
-MAX_WORD_BYTES = 40  # skip pathological tokens
-
-PAREN = re.compile(r"\(([^)]*)\)")
-KEEP = set("abcdefghijklmnopqrstuvwxyzáíúéó'’=-")
-STRIP = ".,!?;:\"“”«»…()[]{}<>/\\|*"
-
-
-def tokenize(text: str) -> list[str]:
-    """Lowercase, fold optional-sound parens (a(n)->an), split on whitespace,
-    strip surrounding punctuation, keep intra-word ' ’ = - (Ainu affix/clitic)."""
-    text = PAREN.sub(r"\1", text.lower())
-    out: list[str] = []
-    for raw in text.split():
-        t = raw.strip(STRIP)
-        if not t or not any(c.isalpha() for c in t):
-            continue
-        if any(c not in KEEP for c in t):
-            continue  # stray characters (digits, foreign letters) -> skip
-        if len(t.encode("utf-8")) > MAX_WORD_BYTES:
-            continue
-        out.append(t)
-    return out
 
 
 def build(corpus: Path):
