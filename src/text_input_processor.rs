@@ -112,8 +112,9 @@ impl ITfTextInputProcessorEx_Impl for TextService_Impl {
 
 impl TextService_Impl {
     fn setup(&self, thread_mgr: &ITfThreadMgr, tid: u32) -> windows::core::Result<()> {
-        // Pick up any on-disk config changes (hand-edits or the settings GUI) and
-        // apply the configured default input mode.
+        // Ensure config.toml exists (so it can be found and hand-edited), pick up
+        // any on-disk changes, and apply the configured default input mode.
+        crate::config::ensure_file();
         let cfg = crate::config::reload();
         self.inner().mode.set(match cfg.input.default_mode {
             crate::config::InputMode::Latin => crate::lang_bar::Mode::Latin,
