@@ -5,3 +5,7 @@
 /out/
 /ainuKey-*-x86_64-windows-msvc.zip
 /ainuKey-*-x86_64-windows-setup.exe
+
+# Python tooling caches
+__pycache__/
+*.pyc
