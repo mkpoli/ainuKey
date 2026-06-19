@@ -251,6 +251,60 @@ class BlendModel:
         return word in self._vocab
 
 
+import math
+
+
+class AreaClassifier:
+    """Online "which writing domain is this?" classifier — cheap enough to run
+    per word in the Rust hot path later. For each area it holds a smoothed
+    unigram log-likelihood *ratio against the background* (the whole corpus), so
+    words common everywhere contribute ~0 and only domain-distinctive words move
+    the score. A document's running score is the sum of those ratios over the
+    words typed so far; the predicted area is the arg-max (or `None` until the
+    lead over the runner-up clears `margin`, so cold-start stays on global)."""
+
+    def __init__(self, area_counts: dict[str, Counter], background: Counter,
+                 k: float = 0.5):
+        self.areas = list(area_counts)
+        vocab = len(background)
+        bg_total = sum(background.values()) + k * vocab
+        # Background log-prob is kept SEPARATE from the area tables: a word can be
+        # unseen in an area yet common in the corpus (the discriminative case), so
+        # its background term must always count, even when the area term backs off
+        # to the unseen floor.
+        self._bg_lp: dict[str, float] = {
+            w: math.log((c + k) / bg_total) for w, c in background.items()
+        }
+        self._bg_unk = math.log(k / bg_total)
+        self._area_lp: dict[str, dict[str, float]] = {}
+        self._area_unk: dict[str, float] = {}
+        for a, cnt in area_counts.items():
+            a_total = sum(cnt.values()) + k * vocab
+            self._area_unk[a] = math.log(k / a_total)
+            self._area_lp[a] = {w: math.log((c + k) / a_total) for w, c in cnt.items()}
+
+    def token_score(self, area: str, word: str) -> float:
+        """log P(word|area) - log P(word|background); >0 means word is more
+        characteristic of `area` than of the corpus at large."""
+        area_lp = self._area_lp[area].get(word, self._area_unk[area])
+        bg_lp = self._bg_lp.get(word, self._bg_unk)
+        return area_lp - bg_lp
+
+    def doc_scores(self, tokens: list[str]) -> dict[str, float]:
+        return {a: sum(self.token_score(a, w) for w in tokens) for a in self.areas}
+
+    def predict(self, running: dict[str, float], margin: float) -> str | None:
+        """Arg-max area from an accumulated score dict, or None if not confident."""
+        if not running:
+            return None
+        ranked = sorted(running.items(), key=lambda kv: -kv[1])
+        best, top = ranked[0]
+        if top <= 0:
+            return None
+        second = ranked[1][1] if len(ranked) > 1 else 0.0
+        return best if (top - second) >= margin else None
+
+
 def candidate_list(
     engine: Engine, prev2: str | None, prev1: str | None, word: str, max_n: int
 ) -> list[str]:

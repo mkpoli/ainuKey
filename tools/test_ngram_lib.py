@@ -7,7 +7,9 @@ Run:  uv run tools/test_ngram_lib.py   (plain asserts, no pytest needed)
 """
 from __future__ import annotations
 
-from ngram_lib import BlendModel, Model, candidate_list, tokenize
+from collections import Counter
+
+from ngram_lib import AreaClassifier, BlendModel, Model, candidate_list, tokenize
 
 
 def synth_suggest() -> Model:
@@ -102,6 +104,22 @@ def test_blend_keeps_global_coverage():
     # global alone ranks kane(1000) >> kamuy(50); the area boost (200*6=1200)
     # lifts kamuy above kane.
     assert comp[0][0] == "kamuy", comp
+
+
+def test_area_classifier_picks_distinctive_domain():
+    # Two areas with one shared filler word ("ne") and one distinctive word each.
+    # The classifier should follow the distinctive word and ignore the filler.
+    news = Counter({"ne": 100, "uske": 40})  # 'uske' = newsy
+    tale = Counter({"ne": 100, "kamuy": 40})  # 'kamuy' = folktale-y
+    bg = news + tale
+    clf = AreaClassifier({"news": news, "tale": tale}, bg)
+    # A filler-only context is not discriminative → no confident pick.
+    assert clf.predict(clf.doc_scores(["ne", "ne"]), margin=1.0) is None
+    # Distinctive words tip the running score to the right area.
+    assert clf.predict(clf.doc_scores(["kamuy", "kamuy"]), margin=0.5) == "tale"
+    assert clf.predict(clf.doc_scores(["uske", "uske"]), margin=0.5) == "news"
+    # Margin gates cold-start: a single weak signal stays uncommitted at high margin.
+    assert clf.predict(clf.doc_scores(["kamuy"]), margin=99.0) is None
 
 
 def test_tokenize_matches_builder_rules():

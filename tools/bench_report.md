@@ -1,14 +1,39 @@
 # ainuKey prediction benchmark
 
-Document-level split: test_frac=0.15, max_cand=9, sample_frac=1.0. All numbers are percentages. Headline = **KSR** (keystroke savings); `KSR_iv` = KSR over in-vocab words only.
+Document-level split: test_frac=0.15, max_cand=9, sample_frac=1.0, margins=[0.5, 1.0, 2.0, 4.0, 8.0]. All numbers are percentages. Headline = **KSR** (keystroke savings); `KSR_iv` = in-vocab only.
 
-## Overall (whole-corpus test set)
+## Regimes — global vs oracle vs auto (trained-area test set)
+
+| engine / area          |   KSR | KSR_iv | hit@1 | hit@3 | hit@5 |   MRR |  fire |   OOV |
+|------------------------|-------|-------|-------|-------|-------|-------|-------|-------|
+| global (baseline)      |  32.7 |  40.5 |  25.3 |  37.7 |  43.3 |  32.8 |  93.4 |   8.5 |
+| oracle (true area)     |  37.7 |  42.9 |  27.0 |  40.1 |  45.9 |  35.1 |  94.6 |   4.5 |  ΔKSR +5.0
+| auto (margin 0.5)      |  36.1 |  42.2 |  26.1 |  39.0 |  44.7 |  34.1 |  94.4 |   5.3 |  ΔKSR +3.4
+| auto (margin 1)        |  35.9 |  42.2 |  26.3 |  39.1 |  44.8 |  34.2 |  94.3 |   5.5 |  ΔKSR +3.2
+| auto (margin 2)        |  35.7 |  42.1 |  26.3 |  39.1 |  44.7 |  34.1 |  94.1 |   5.7 |  ΔKSR +3.0
+| auto (margin 4)        |  35.5 |  42.0 |  26.2 |  38.9 |  44.6 |  34.0 |  94.1 |   5.9 |  ΔKSR +2.8
+| auto (margin 8)        |  35.3 |  41.9 |  26.0 |  38.8 |  44.5 |  33.8 |  94.0 |   6.2 |  ΔKSR +2.6
+
+### Auto-detect margin sweep
+
+| margin | ΔKSR | capture | cls-acc | commit-rate |
+|--------|------|---------|---------|-------------|
+| 0.5 | +3.42 | 68% | 84.3% | 65% |
+| 1 | +3.24 | 65% | 91.3% | 55% |
+| 2 | +3.04 | 61% | 97.4% | 47% |
+| 4 | +2.82 | 56% | 99.6% | 41% |
+| 8 | +2.58 | 51% | 100.0% | 36% |
+
+- **Best: margin 0.5** → ΔKSR +3.42 pts, **68% of the oracle lift**, classifier 84.3% accurate, commits on 65% of positions.
+- Cold-start at best margin (accuracy by word position): 1–5 **69%**, 6–20 **91%**, 21–50 **100%**, 51+ **100%**
+
+## Overall (whole-corpus test set, global model)
 
 | engine / area          |   KSR | KSR_iv | hit@1 | hit@3 | hit@5 |   MRR |  fire |   OOV |
 |------------------------|-------|-------|-------|-------|-------|-------|-------|-------|
 | global                 |  31.7 |  39.9 |  24.6 |  36.7 |  42.2 |  31.9 |  93.0 |   9.2 |
 
-## Per area: global vs area-only vs area+global blend
+## Per area — global vs area-only vs area+global blend
 
 ### アイヌ語アーカイブ  (62,677 test tokens)
 
@@ -74,9 +99,7 @@ Document-level split: test_frac=0.15, max_cand=9, sample_frac=1.0. All numbers a
 | area-only              |  32.6 |  39.8 |  18.2 |  29.2 |  33.4 |  24.5 |  84.6 |   9.9 |
 | blend (area+global)    |  31.4 |  37.1 |  21.2 |  32.3 |  37.3 |  28.0 |  91.9 |   7.9 |  ΔKSR +6.2, Δhit@3 +6.1
 
-## Verdict (test-token-weighted blend lift over global)
+## Verdict
 
-- **ΔKSR  +4.97 pts** (in-vocab +2.32)
-- **Δhit@3 +2.32 pts**
-
-If the blend lift is clearly positive, area-specialization is worth shipping (per-area tables + a domain selector in settings). If it's near zero, the single global model already captures it.
+- Oracle blend lift over global (token-weighted): **ΔKSR +4.97**, Δhit@3 +2.32 pts.
+- Auto-detect captures **68%** of that lift with no user action (ΔKSR +3.42 pts), classifier 84% accurate.
