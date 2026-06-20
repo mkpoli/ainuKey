@@ -165,6 +165,86 @@ impl Config {
         toml::to_string_pretty(self).unwrap_or_default()
     }
 
+    /// Serialize to TOML **with inline documentation** — a header plus, for every
+    /// option, a comment describing it and listing its allowed values. This is
+    /// what gets written to disk, so the file is tunable by hand without guessing.
+    /// Comments are ignored by [`parse`](Self::parse), so it still round-trips.
+    pub fn to_documented_toml(&self) -> String {
+        let i = &self.input;
+        let o = &self.orthography;
+        let s = &self.suggestions;
+        let mode = match i.default_mode {
+            InputMode::Kana => "kana",
+            InputMode::Latin => "latin",
+        };
+        let tu = match o.tu_style {
+            TuStyle::To => "to",
+            TuStyle::Tsu => "tsu",
+            TuStyle::Twu => "twu",
+            TuStyle::PlainTsu => "plain_tsu",
+        };
+        format!(
+            "\
+# ainuKey configuration  —  %APPDATA%\\ainuKey\\config.toml
+#
+# Edit and save, then re-activate ainuKey (switch input away and back, or restart
+# the app) to apply. Lines beginning with '#' are comments. Each option lists its
+# allowed values; delete this file to regenerate it with the defaults below.
+
+[input]
+# Mode a new composition starts in.
+#   kana  = convert romaji to Ainu katakana (normal)
+#   latin = pass Latin letters through unchanged
+default_mode = \"{mode}\"
+# Show romaji while typing and convert to katakana only on commit.  (true | false)
+romaji_input_mode = {romaji}
+
+[orthography]
+# How to render the `tu` mora:
+#   to        = ト゚   (ト + handakuten; ainconv default)
+#   tsu       = ツ゚   (ツ + handakuten)
+#   twu       = トゥ
+#   plain_tsu = ツ    (plain katakana tsu)
+tu_style = \"{tu}\"
+# Render the -y coda as a small ィ instead of イ.  (true | false)
+use_small_i = {usi}
+# Render the -w coda as a small ゥ instead of ウ.  (true | false)
+use_small_u = {usu}
+# Render the -n coda as a small ㇴ instead of ン.  (true | false)
+use_small_n = {usn}
+# Render onset `wi` as ヰ instead of ウィ.  (true | false)
+use_wi = {uwi}
+# Render onset `we` as ヱ instead of ウェ.  (true | false)
+use_we = {uwe}
+# Render onset `wo` as ヲ instead of ウォ.  (true | false)
+use_wo = {uwo}
+# Keep the `=` morpheme boundary in the output (ainconv strips it).  (true | false)
+show_equals_boundary = {eq}
+
+[suggestions]
+# Show the candidate window with word suggestions.  (true | false)
+enabled = {en}
+# Maximum number of candidates shown in the list.  (integer, e.g. 9)
+max_candidates = {mc}
+# Re-rank completions by trigram/bigram context.  (true | false)
+context_aware = {ca}
+",
+            mode = mode,
+            romaji = i.romaji_input_mode,
+            tu = tu,
+            usi = o.use_small_i,
+            usu = o.use_small_u,
+            usn = o.use_small_n,
+            uwi = o.use_wi,
+            uwe = o.use_we,
+            uwo = o.use_wo,
+            eq = o.show_equals_boundary,
+            en = s.enabled,
+            mc = s.max_candidates,
+            ca = s.context_aware,
+        )
+    }
+
     /// Atomically write to `%APPDATA%\ainuKey\config.toml` (no-op if unset).
     pub fn save(&self) -> std::io::Result<()> {
         match Self::path() {
@@ -180,7 +260,9 @@ impl Config {
             std::fs::create_dir_all(dir)?;
         }
         let tmp = path.with_extension("toml.tmp");
-        std::fs::write(&tmp, self.to_toml())?;
+        // Write the self-documenting form so a hand-editor sees what each option
+        // means and its allowed values.
+        std::fs::write(&tmp, self.to_documented_toml())?;
         std::fs::rename(&tmp, path)
     }
 }
@@ -243,6 +325,40 @@ mod tests {
         c.input.default_mode = InputMode::Latin;
         c.suggestions.max_candidates = 5;
         assert_eq!(Config::parse(&c.to_toml()), c);
+    }
+
+    #[test]
+    fn documented_toml_round_trips_and_covers_every_field() {
+        // Every field set to a NON-default value: if to_documented_toml omits any
+        // field, parse() returns its default and this comparison fails — so the
+        // documented template can't silently drift out of sync with the struct.
+        let c = Config {
+            input: Input {
+                default_mode: InputMode::Latin,
+                romaji_input_mode: true,
+            },
+            orthography: Orthography {
+                tu_style: TuStyle::PlainTsu,
+                use_small_i: true,
+                use_small_u: true,
+                use_small_n: true,
+                use_wi: true,
+                use_we: true,
+                use_wo: true,
+                show_equals_boundary: true,
+            },
+            suggestions: Suggestions {
+                enabled: false,
+                max_candidates: 4,
+                context_aware: false,
+            },
+        };
+        let doc = c.to_documented_toml();
+        assert_eq!(Config::parse(&doc), c, "documented TOML must round-trip");
+        // It really is documented: comments + an allowed-values list are present.
+        assert!(doc.contains("# ainuKey configuration"));
+        assert!(doc.contains("plain_tsu = ツ"), "tu_style values listed: {doc}");
+        assert!(doc.contains("(true | false)"));
     }
 
     #[test]
