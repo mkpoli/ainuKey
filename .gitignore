@@ -9,3 +9,9 @@
 # Python tooling caches
 __pycache__/
 *.pyc
+
+# Corpus-derived neural training data + model artifacts (rights-gated)
+/data/neural/
+/tools/neural/runs/
+*.onnx
+*.pt
