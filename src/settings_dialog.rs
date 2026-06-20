@@ -116,6 +116,9 @@ pub fn show(parent: HWND) {
         }
         let _ = SetWindowPos(hwnd, None, x, y, 0, 0, SWP_NOSIZE);
         let _ = ShowWindow(hwnd, SW_SHOW);
+        // Pop to the front — without this the dialog can open behind the active
+        // window (especially when launched from the Start-menu rundll32 shortcut).
+        let _ = SetForegroundWindow(hwnd);
 
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {

@@ -43,6 +43,14 @@ Source: "..\target\x86_64-pc-windows-msvc\release\ainukey.dll"; DestDir: "{app}"
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
+[Icons]
+; Start-menu shortcut that opens the settings dialog via the DLL's ShowSettings
+; export. This is the reachable way to settings on Windows 11, where the floating
+; language bar — and therefore the langbar "設定 / Settings…" menu — is hidden by
+; default. {sys}\rundll32.exe is 64-bit here (ArchitecturesInstallIn64BitMode),
+; so it can load the 64-bit DLL.
+Name: "{autoprograms}\ainuKey Settings"; Filename: "{sys}\rundll32.exe"; Parameters: """{app}\ainukey.dll"",ShowSettings"; WorkingDir: "{app}"; Comment: "ainuKey — 設定 / Settings"
+
 [Messages]
 ; Shown on the final page.
 FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.

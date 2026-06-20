@@ -150,3 +150,19 @@ pub unsafe extern "system" fn DllUnregisterServer() -> HRESULT {
     let _ = registry::unregister_all();
     S_OK
 }
+
+/// `rundll32.exe "<path>\ainukey.dll",ShowSettings` — opens the settings dialog
+/// from the Start-menu shortcut. This is the reachable entry point on Windows 11,
+/// where the floating language bar (and hence the langbar "設定 / Settings…" menu)
+/// is hidden by default, so neither the langbar menu nor the TSF "Options" button
+/// surfaces. The signature matches rundll32's CALLBACK contract; `show` runs a
+/// modal loop, so rundll32 stays alive until the dialog closes.
+#[no_mangle]
+pub extern "system" fn ShowSettings(
+    _hwnd: windows::Win32::Foundation::HWND,
+    _hinst: HMODULE,
+    _cmdline: windows::core::PCSTR,
+    _ncmdshow: i32,
+) {
+    settings_dialog::show(windows::Win32::Foundation::HWND::default());
+}
