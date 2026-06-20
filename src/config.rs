@@ -15,15 +15,20 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
-/// How to render the `tu` mora / `t` onset in katakana.
+/// How to render the `tu` mora in katakana. Ainu `tu` has several attested
+/// spellings; pick the one your materials use.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TuStyle {
-    /// `ainconv`'s convention: ト゚.
+    /// `ainconv`'s default: ト゚ (ト with a combining handakuten).
     #[default]
     To,
-    /// Alternative convention: ツ゚.
+    /// ツ゚ — ツ with a combining handakuten.
     Tsu,
+    /// トゥ — ト followed by a small ゥ.
+    Twu,
+    /// ツ — a plain katakana tsu, no handakuten.
+    PlainTsu,
 }
 
 /// Mode a fresh composition starts in.
@@ -56,14 +61,26 @@ impl Default for Input {
     }
 }
 
-/// Katakana notation options (post-processed over `ainconv`).
+/// Katakana notation options, applied on top of the default `ainconv`
+/// conversion. Mirrors the canonical option set in `ainconv-tests`
+/// (`options.schema.json`): `useWi`/`useWe`/`useWo`, `useSmallI`/`U`/`N`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Orthography {
-    /// Rendering of the `tu`/`t` sound.
+    /// How to render the `tu` mora (ト゚ / ツ゚ / トゥ / ツ).
     pub tu_style: TuStyle,
-    /// Keep the small glide codas (`y`→ィ, `w`→ゥ) instead of collapsing to イ/ウ.
-    pub small_glides: bool,
+    /// Render the `-y` coda as a small ィ instead of イ.
+    pub use_small_i: bool,
+    /// Render the `-w` coda as a small ゥ instead of ウ.
+    pub use_small_u: bool,
+    /// Render the `-n` coda as a small ㇴ instead of ン.
+    pub use_small_n: bool,
+    /// Render onset `wi` as ヰ instead of ウィ.
+    pub use_wi: bool,
+    /// Render onset `we` as ヱ instead of ウェ.
+    pub use_we: bool,
+    /// Render onset `wo` as ヲ instead of ウォ.
+    pub use_wo: bool,
     /// Show the `=` morpheme boundary in the output (`ainconv` strips it).
     pub show_equals_boundary: bool,
 }
@@ -72,7 +89,12 @@ impl Default for Orthography {
     fn default() -> Self {
         Self {
             tu_style: TuStyle::To,
-            small_glides: false,
+            use_small_i: false,
+            use_small_u: false,
+            use_small_n: false,
+            use_wi: false,
+            use_we: false,
+            use_wo: false,
             show_equals_boundary: false,
         }
     }
@@ -216,8 +238,8 @@ mod tests {
     #[test]
     fn toml_round_trips() {
         let mut c = Config::default();
-        c.orthography.tu_style = TuStyle::Tsu;
-        c.orthography.small_glides = true;
+        c.orthography.tu_style = TuStyle::Twu;
+        c.orthography.use_small_i = true;
         c.input.default_mode = InputMode::Latin;
         c.suggestions.max_candidates = 5;
         assert_eq!(Config::parse(&c.to_toml()), c);
@@ -231,8 +253,9 @@ mod tests {
     #[test]
     fn partial_file_fills_missing_with_defaults() {
         // Only one field of one section given; everything else defaults.
-        let c = Config::parse("[orthography]\nsmall_glides = true\n");
-        assert!(c.orthography.small_glides);
+        let c = Config::parse("[orthography]\nuse_small_i = true\n");
+        assert!(c.orthography.use_small_i);
+        assert!(!c.orthography.use_small_u); // not given → defaulted
         assert_eq!(c.orthography.tu_style, TuStyle::To); // defaulted
         assert_eq!(c.suggestions.max_candidates, 9); // whole section defaulted
         assert_eq!(c.input.default_mode, InputMode::Kana);
