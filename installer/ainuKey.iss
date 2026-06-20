@@ -1,4 +1,4 @@
-; Inno Setup script for ainuKey — installs and registers the TSF IME DLL.
+﻿; Inno Setup script for ainuKey — installs and registers the TSF IME DLL.
 ;
 ; Build:
 ;   ISCC.exe /DMyAppVersion=0.1.0 installer\ainuKey.iss
@@ -33,6 +33,17 @@ WizardStyle=modern
 LicenseFile=..\LICENSE
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\ainukey.dll
+; Always offer the language picker at startup (more than one language below).
+ShowLanguageDialog=yes
+
+[Languages]
+; English / Japanese / Russian ship with Inno Setup. Chinese (Simplified) is the
+; community translation, and Ainu is a partial manual locale — both bundled here.
+Name: "english";           MessagesFile: "compiler:Default.isl"
+Name: "japanese";          MessagesFile: "compiler:Languages\Japanese.isl"
+Name: "russian";           MessagesFile: "compiler:Languages\Russian.isl"
+Name: "chinesesimplified"; MessagesFile: "i18n\ChineseSimplified.isl"
+Name: "ainu";              MessagesFile: "i18n\Ainu.isl"
 
 [Files]
 ; `regserver` calls DllRegisterServer on install and DllUnregisterServer on
@@ -44,5 +55,18 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
 [Messages]
-; Shown on the final page.
-FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.
+; Final-page instruction, per language. The technical step (switch input + type
+; romaji) is the same everywhere; only the wording is localized.
+english.FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.
+japanese.FinishedLabel=ainuKeyをインストールしました。入力切替（Win+Space）でainuKey（「日本語」の下に表示されます）を選び、ローマ字で入力してください。
+russian.FinishedLabel=ainuKey установлен. Переключите ввод (Win+Space) на ainuKey (в разделе «Японский») и печатайте латиницей (ромадзи).
+chinesesimplified.FinishedLabel=ainuKey 已安装。请用 Win+Space 将输入法切换到 ainuKey（位于“日语”下方），然后输入罗马字。
+ainu.FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.
+
+; Ainu (Aynu itak) welcome strings — vetted vocabulary only (README + Ainu
+; dictionaries via the Ainu MCP): irankarapte = greeting, porokram = program,
+; aeynuyep = input tool, Aynu itak = the Ainu language. Other wizard strings fall
+; back to English; native-speaker review welcome before relying on this locale.
+ainu.BeveledLabel=Aynu itak aeynuyep
+ainu.WelcomeLabel1=Irankarapte!
+ainu.WelcomeLabel2=Tan porokram anakne Windows or ta Aynu itak ani aeynuyep ne.
