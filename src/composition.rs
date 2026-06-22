@@ -202,7 +202,14 @@ impl TextService_Impl {
         state.candidates = crate::candidates::CandidateList::default();
         // Shift the committed-word history (prev2, prev1) for trigram context.
         state.prev_committed = state.last_committed.take();
-        state.last_committed = Some(chosen);
+        state.last_committed = Some(chosen.clone());
+        // Append to the neural engine's sliding-window context (recent words).
+        state.committed_words.push(chosen);
+        const MAX_CTX: usize = 40;
+        if state.committed_words.len() > MAX_CTX {
+            let drop = state.committed_words.len() - MAX_CTX;
+            state.committed_words.drain(0..drop);
+        }
         Ok(())
     }
 
@@ -251,26 +258,47 @@ impl ITfCompositionSink_Impl for TextService_Impl {
 impl TextService_Impl {
     /// Rebuild the candidate list from the current buffer and show it.
     fn refresh_candidates(&self) {
-        let (norm, prev2, prev1) = {
+        let (norm, prev2, prev1, committed) = {
             let state = self.inner();
             (
                 crate::romaji::normalize(&state.buffer),
                 state.prev_committed.clone(),
                 state.last_committed.clone(),
+                state.committed_words.clone(),
             )
         };
         let sug = crate::config::current().suggestions;
-        let list = match (sug.enabled, crate::suggest::global()) {
-            (true, Some(s)) => {
-                // Context-aware off → ignore the committed-word history.
-                let (p2, p1) = if sug.context_aware {
-                    (prev2.as_deref(), prev1.as_deref())
-                } else {
-                    (None, None)
-                };
-                crate::candidates::CandidateList::build(p2, p1, &norm, s, sug.max_candidates)
+        let list = if !sug.enabled || norm.is_empty() {
+            crate::candidates::CandidateList::default()
+        } else if sug.engine == crate::config::Engine::Neural && crate::neural::global().is_some() {
+            // Neural engine: stream the LSTM over the recent committed words, then
+            // rank prefix completions by full-sentence-context logits.
+            let m = crate::neural::global().expect("checked is_some");
+            let mut st = m.new_state();
+            m.step_id(&mut st, m.bos());
+            for w in &committed {
+                m.step_word(&mut st, w);
             }
-            _ => crate::candidates::CandidateList::default(),
+            let comps: Vec<String> = m
+                .complete(&st, &norm, sug.max_candidates + 2)
+                .into_iter()
+                .filter(|w| *w != norm)
+                .map(|w| w.to_string())
+                .collect();
+            crate::candidates::CandidateList::from_words(&norm, comps, sug.max_candidates)
+        } else {
+            // n-gram engine (also the fallback when the neural model is absent).
+            match crate::suggest::global() {
+                Some(s) => {
+                    let (p2, p1) = if sug.context_aware {
+                        (prev2.as_deref(), prev1.as_deref())
+                    } else {
+                        (None, None)
+                    };
+                    crate::candidates::CandidateList::build(p2, p1, &norm, s, sug.max_candidates)
+                }
+                None => crate::candidates::CandidateList::default(),
+            }
         };
         self.inner_mut().candidates = list;
         self.show_candidates();

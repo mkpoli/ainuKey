@@ -88,6 +88,28 @@ impl CandidateList {
         Self { items, selected: 0 }
     }
 
+    /// Build a list from an explicit, already-ranked list of completion words
+    /// (e.g. from the neural engine). Item 0 is the typed `word`; the rest are
+    /// `completions` (which should already exclude `word`), deduped, up to `max`.
+    pub fn from_words(word: &str, completions: Vec<String>, max: usize) -> Self {
+        if word.is_empty() {
+            return Self::default();
+        }
+        let mut items = Vec::with_capacity(max);
+        let mut seen = HashSet::new();
+        items.push(word.to_string());
+        seen.insert(word.to_string());
+        for w in completions {
+            if items.len() >= max {
+                break;
+            }
+            if seen.insert(w.clone()) {
+                items.push(w);
+            }
+        }
+        Self { items, selected: 0 }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
@@ -248,6 +270,23 @@ mod tests {
         assert!(c.select_index(n - 1));
         assert_eq!(c.current(), Some(c.items()[n - 1].as_str()));
         assert!(!c.select_index(n)); // out of range
+    }
+
+    #[test]
+    fn from_words_builds_typed_plus_deduped_completions() {
+        // Item 0 is the typed word; completions follow in order, deduped, capped.
+        let c = CandidateList::from_words(
+            "kam",
+            vec!["kamuy".into(), "kamui".into(), "kamuy".into()],
+            8,
+        );
+        assert_eq!(c.items(), &["kam".to_string(), "kamuy".into(), "kamui".into()]);
+        // cap includes the typed word
+        let c2 = CandidateList::from_words("ka", vec!["kar".into(), "kane".into()], 2);
+        assert_eq!(c2.len(), 2);
+        assert_eq!(c2.items()[0], "ka");
+        // empty typed word → empty list
+        assert!(CandidateList::from_words("", vec!["x".into()], 8).is_empty());
     }
 
     #[test]

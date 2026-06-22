@@ -168,6 +168,11 @@ impl Model {
         self.v
     }
 
+    /// The `<bos>` token id — feed it to start a fresh sentence context.
+    pub fn bos(&self) -> u32 {
+        self.stoi.get("<bos>").copied().unwrap_or(2)
+    }
+
     /// A fresh zero state (start of a composition).
     pub fn new_state(&self) -> State {
         State {
