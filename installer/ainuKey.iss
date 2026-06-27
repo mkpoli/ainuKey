@@ -17,6 +17,8 @@
 AppId={{5ECECCEE-271D-4675-8EE5-8D129EF0CA08}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+; Stamp the setup.exe's file/product version so it's visible in its Properties.
+VersionInfoVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}

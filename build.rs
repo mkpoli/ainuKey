@@ -23,7 +23,57 @@ fn main() {
         println!("cargo:rustc-cdylib-link-arg=/DEF:{}", def.display());
     }
 
+    provide_version_resource();
     provide_ngrams_table();
+}
+
+/// Embed a Windows VERSIONINFO resource so the DLL reports its version in
+/// Explorer (right-click → Properties → Details) and to tooling. The version is
+/// CARGO_PKG_VERSION (Cargo.toml is the single source of truth; bump it per
+/// release). No-op on non-MSVC / `cargo check` (no rc.exe), like the icon embed.
+fn provide_version_resource() {
+    use std::path::Path;
+    let ver = std::env::var("CARGO_PKG_VERSION").unwrap_or_else(|_| "0.0.0".into());
+    let mut n: Vec<&str> = ver.split('.').collect();
+    while n.len() < 4 {
+        n.push("0");
+    }
+    let fv = format!("{},{},{},{}", n[0], n[1], n[2], n[3]);
+    let rc = format!(
+        "1 VERSIONINFO\n\
+         FILEVERSION {fv}\n\
+         PRODUCTVERSION {fv}\n\
+         FILEOS 0x40004L\n\
+         FILETYPE 0x2L\n\
+         BEGIN\n\
+         \x20 BLOCK \"StringFileInfo\"\n\
+         \x20 BEGIN\n\
+         \x20   BLOCK \"040904b0\"\n\
+         \x20   BEGIN\n\
+         \x20     VALUE \"CompanyName\", \"mkpoli\"\n\
+         \x20     VALUE \"FileDescription\", \"ainuKey - Ainu language IME for Windows (TSF)\"\n\
+         \x20     VALUE \"FileVersion\", \"{ver}\"\n\
+         \x20     VALUE \"InternalName\", \"ainukey.dll\"\n\
+         \x20     VALUE \"LegalCopyright\", \"MIT (c) 2024-2026 mkpoli\"\n\
+         \x20     VALUE \"OriginalFilename\", \"ainukey.dll\"\n\
+         \x20     VALUE \"ProductName\", \"ainuKey\"\n\
+         \x20     VALUE \"ProductVersion\", \"{ver}\"\n\
+         \x20   END\n\
+         \x20 END\n\
+         \x20 BLOCK \"VarFileInfo\"\n\
+         \x20 BEGIN\n\
+         \x20   VALUE \"Translation\", 0x409, 1200\n\
+         \x20 END\n\
+         END\n",
+        fv = fv,
+        ver = ver,
+    );
+    let out = std::env::var("OUT_DIR").expect("OUT_DIR");
+    let path = Path::new(&out).join("version.rc");
+    std::fs::write(&path, rc).expect("write version.rc");
+    if let Err(e) = embed_resource::compile(&path, embed_resource::NONE).manifest_optional() {
+        println!("cargo:warning=ainuKey: version resource embed skipped ({e})");
+    }
 }
 
 /// Provide the n-gram suggestion table to `OUT_DIR` for `include_bytes!`.
