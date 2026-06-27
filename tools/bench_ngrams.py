@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import sys
 from collections import Counter, defaultdict
 from itertools import chain
@@ -52,7 +53,9 @@ from ngram_lib import (
     tokenize,
 )
 
-DEFAULT_CORPUS = Path("../ainu-corpora/data.jsonl")
+# Corpus path: $AINU_CORPUS, else a sibling `ainu-corpora` checkout (run from the
+# repo root). No hardcoded absolute/home path; override with --corpus.
+DEFAULT_CORPUS = Path(os.environ.get("AINU_CORPUS", "../ainu-corpora/data.jsonl"))
 DEFAULT_OUT = Path(__file__).resolve().parent / "bench_report.md"
 AREA_FIELD = "collection_lv1"
 OTHER = "∅ (uncategorized)"

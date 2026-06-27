@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import struct
 import sys
 from collections import Counter
@@ -31,7 +32,9 @@ from pathlib import Path
 # Tokenizer is shared with the benchmark so both see identical tokens.
 from ngram_lib import tokenize
 
-DEFAULT_CORPUS = Path("../ainu-corpora/data.jsonl")
+# Corpus path: $AINU_CORPUS, else a sibling `ainu-corpora` checkout (run from the
+# repo root). No hardcoded absolute/home path; override with --corpus.
+DEFAULT_CORPUS = Path(os.environ.get("AINU_CORPUS", "../ainu-corpora/data.jsonl"))
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "data" / "ngrams.bin"
 
 MAGIC = b"AKNG"
