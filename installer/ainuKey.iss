@@ -37,13 +37,13 @@ UninstallDisplayIcon={app}\ainukey.dll
 ShowLanguageDialog=yes
 
 [Languages]
-; English / Japanese / Russian ship with Inno Setup. Chinese (Simplified) is the
-; community translation, and Ainu is a partial manual locale — both bundled here.
+; English / Japanese / Russian ship with Inno Setup; Chinese (Simplified) is the
+; community translation, bundled under installer/i18n/. A full Ainu (Aynu itak)
+; locale is built separately (see the Ainu-locale PR).
 Name: "english";           MessagesFile: "compiler:Default.isl"
 Name: "japanese";          MessagesFile: "compiler:Languages\Japanese.isl"
 Name: "russian";           MessagesFile: "compiler:Languages\Russian.isl"
 Name: "chinesesimplified"; MessagesFile: "i18n\ChineseSimplified.isl"
-Name: "ainu";              MessagesFile: "i18n\Ainu.isl"
 
 [Files]
 ; `regserver` calls DllRegisterServer on install and DllUnregisterServer on
@@ -61,12 +61,3 @@ english.FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey
 japanese.FinishedLabel=ainuKeyをインストールしました。入力切替（Win+Space）でainuKey（「日本語」の下に表示されます）を選び、ローマ字で入力してください。
 russian.FinishedLabel=ainuKey установлен. Переключите ввод (Win+Space) на ainuKey (в разделе «Японский») и печатайте латиницей (ромадзи).
 chinesesimplified.FinishedLabel=ainuKey 已安装。请用 Win+Space 将输入法切换到 ainuKey（位于“日语”下方），然后输入罗马字。
-ainu.FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.
-
-; Ainu (Aynu itak) welcome strings — vetted vocabulary only (README + Ainu
-; dictionaries via the Ainu MCP): irankarapte = greeting, porokram = program,
-; aeynuyep = input tool, Aynu itak = the Ainu language. Other wizard strings fall
-; back to English; native-speaker review welcome before relying on this locale.
-ainu.BeveledLabel=Aynu itak aeynuyep
-ainu.WelcomeLabel1=Irankarapte!
-ainu.WelcomeLabel2=Tan porokram anakne Windows or ta Aynu itak ani aeynuyep ne.
