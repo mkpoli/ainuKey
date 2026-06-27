@@ -106,8 +106,10 @@ pub fn convert(latn: &str) -> String {
 /// Convert romaji to katakana, applying notation options on top of the default
 /// conversion:
 /// * `show_equals_boundary` — keep the `=` morpheme boundary (ainconv strips it),
-/// * `small_glides` — render coda `y`/`w` as small ィ/ゥ (ainconv collapses to イ/ウ),
-/// * `tu_style` — render the `tu` mora as ツ゚ instead of ト゚.
+/// * `use_wi`/`use_we`/`use_wo` — render onset `wi`/`we`/`wo` as ヰ/ヱ/ヲ,
+/// * `use_small_i`/`use_small_u` — render coda `y`/`w` as small ィ/ゥ (else イ/ウ),
+/// * `use_small_n` — render coda `n` as small ㇴ (else ン),
+/// * `tu_style` — render the `tu` mora as ト゚ / ツ゚ / トゥ / ツ.
 pub fn convert_with(latn: &str, ortho: &Orthography) -> String {
     let chars: Vec<char> = latn.chars().collect();
     let mut out = String::new();
@@ -151,9 +153,9 @@ pub fn convert_with(latn: &str, ortho: &Orthography) -> String {
             continue;
         }
         // Coda glide: `y`/`w` after a vowel and not before a vowel. ainconv
-        // collapses these to イ/ウ; with `small_glides` we keep the small kana.
-        if ortho.small_glides
-            && (c == 'y' || c == 'w')
+        // collapses these to イ/ウ; the small-kana options keep ィ/ゥ.
+        let small_glide = (c == 'y' && ortho.use_small_i) || (c == 'w' && ortho.use_small_u);
+        if small_glide
             && i > 0
             && is_vowel(chars[i - 1])
             && (i + 1 >= chars.len() || !is_vowel(chars[i + 1]))
@@ -168,9 +170,32 @@ pub fn convert_with(latn: &str, ortho: &Orthography) -> String {
     }
     flush(&mut run, &mut out);
 
-    // `tu` is the only source of ト゚, so this swap is unambiguous.
-    if ortho.tu_style == TuStyle::Tsu {
-        out = out.replace("ト゚", "ツ゚");
+    // Onset `wi`/`we`/`wo` — ainconv spells these out as ウィ/ウェ/ウォ; the options
+    // keep the dedicated kana. Post-processed so a following coda stays intact
+    // (e.g. `wen` → ウェン → ヱン).
+    if ortho.use_wi {
+        out = out.replace("ウィ", "ヰ");
+    }
+    if ortho.use_we {
+        out = out.replace("ウェ", "ヱ");
+    }
+    if ortho.use_wo {
+        out = out.replace("ウォ", "ヲ");
+    }
+    // Coda `n` renders as ン by default; ㇴ is the small-kana alternative. Every ン
+    // in Ainu output is a coda (onset n+V is ナ…ノ), so the swap is unambiguous.
+    if ortho.use_small_n {
+        out = out.replace('ン', "ㇴ");
+    }
+    // `tu` is the only source of ト゚, so remapping it is unambiguous.
+    let tu = match ortho.tu_style {
+        TuStyle::To => None,
+        TuStyle::Tsu => Some("ツ゚"),
+        TuStyle::Twu => Some("トゥ"),
+        TuStyle::PlainTsu => Some("ツ"),
+    };
+    if let Some(rep) = tu {
+        out = out.replace("ト゚", rep);
     }
     out
 }
@@ -405,37 +430,58 @@ mod tests {
     }
 
     #[test]
-    fn tu_style_tsu() {
-        // ainconv renders `tu` as ト゚; the Tsu option swaps it to ツ゚.
+    fn tu_style_variants() {
+        // ainconv renders `tu` as ト゚; each option remaps it.
         assert_eq!(convert("tu"), "ト゚");
+        assert_eq!(convert_with("tu", &ortho(|o| o.tu_style = TuStyle::Tsu)), "ツ゚");
+        assert_eq!(convert_with("tu", &ortho(|o| o.tu_style = TuStyle::Twu)), "トゥ");
         assert_eq!(
-            convert_with("tu", &ortho(|o| o.tu_style = TuStyle::Tsu)),
-            "ツ゚"
+            convert_with("tu", &ortho(|o| o.tu_style = TuStyle::PlainTsu)),
+            "ツ"
         );
         assert_eq!(
-            convert_with("tumpu", &ortho(|o| o.tu_style = TuStyle::Tsu)),
-            "ツ゚ㇺプ"
+            convert_with("tumpu", &ortho(|o| o.tu_style = TuStyle::Twu)),
+            "トゥㇺプ"
         );
     }
 
     #[test]
-    fn small_glides() {
-        // Coda y/w collapse to イ/ウ by default; the option keeps the small kana.
+    fn small_glide_codas() {
+        // Coda y/w collapse to イ/ウ by default; the small-kana options keep ィ/ゥ.
         assert_eq!(convert("kamuy"), "カムイ");
         assert_eq!(
-            convert_with("kamuy", &ortho(|o| o.small_glides = true)),
+            convert_with("kamuy", &ortho(|o| o.use_small_i = true)),
             "カムィ"
         );
+        assert_eq!(convert_with("ay", &ortho(|o| o.use_small_i = true)), "アィ");
+        // use_small_i affects only the `y` coda, not the `w` coda.
         assert_eq!(
-            convert_with("ay", &ortho(|o| o.small_glides = true)),
-            "アィ"
-        );
-        // onset y/w (followed by a vowel) is unaffected
-        assert_eq!(convert_with("ya", &ortho(|o| o.small_glides = true)), "ヤ");
-        assert_eq!(
-            convert_with("yaywa", &ortho(|o| o.small_glides = true)),
+            convert_with("yaywa", &ortho(|o| o.use_small_i = true)),
             "ヤィワ"
         );
+        // onset y (followed by a vowel) is unaffected
+        assert_eq!(convert_with("ya", &ortho(|o| o.use_small_i = true)), "ヤ");
+    }
+
+    #[test]
+    fn small_n_coda() {
+        // Coda `n` is ン by default; use_small_n keeps ㇴ.
+        assert_eq!(convert("pon"), "ポン");
+        assert_eq!(convert_with("pon", &ortho(|o| o.use_small_n = true)), "ポㇴ");
+        // onset n+vowel (ナ…ノ) is never ン, so it is untouched.
+        assert_eq!(convert_with("nina", &ortho(|o| o.use_small_n = true)), convert("nina"));
+    }
+
+    #[test]
+    fn w_onset_kana() {
+        // ainconv spells onset wi/we/wo as ウィ/ウェ/ウォ; the options keep ヰ/ヱ/ヲ.
+        assert_eq!(convert_with("wi", &ortho(|o| o.use_wi = true)), "ヰ");
+        assert_eq!(convert_with("we", &ortho(|o| o.use_we = true)), "ヱ");
+        assert_eq!(convert_with("wo", &ortho(|o| o.use_wo = true)), "ヲ");
+        // a following coda stays intact (post-processed): wen → ウェン → ヱン.
+        assert_eq!(convert_with("wen", &ortho(|o| o.use_we = true)), "ヱン");
+        // off by default
+        assert_eq!(convert_with("wi", &Orthography::default()), convert("wi"));
     }
 
     #[test]
