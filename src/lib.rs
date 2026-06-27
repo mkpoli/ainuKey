@@ -20,6 +20,7 @@ mod guids;
 mod kana;
 mod key_event_sink;
 mod lang_bar;
+mod neural;
 mod registry;
 mod romaji;
 mod settings_dialog;
