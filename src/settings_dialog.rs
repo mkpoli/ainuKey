@@ -83,6 +83,12 @@ pub fn show(parent: HWND) {
     register_class();
     let hinst = crate::dll_instance();
 
+    // Title carries the build version so users can confirm which build is running
+    // (matches the DLL's VERSIONINFO; both come from CARGO_PKG_VERSION).
+    let title: Vec<u16> = format!("ainuKey v{} — 設定 / Settings\0", env!("CARGO_PKG_VERSION"))
+        .encode_utf16()
+        .collect();
+
     // Centre a fixed-size dialog on the primary screen.
     let (w, h) = (440, 290);
     // SAFETY: GetSystemMetrics is always safe.
@@ -94,7 +100,7 @@ pub fn show(parent: HWND) {
         CreateWindowExW(
             Default::default(),
             CLASS_NAME,
-            w!("ainuKey — 設定 / Settings"),
+            PCWSTR(title.as_ptr()),
             WS_POPUP | WS_CAPTION | WS_SYSMENU,
             x,
             y,
