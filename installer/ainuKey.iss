@@ -52,10 +52,14 @@ Name: "korean";            MessagesFile: "i18n\Korean.isl"
 
 [Files]
 ; `regserver` calls DllRegisterServer on install and DllUnregisterServer on
-; uninstall. In 64-bit install mode the 64-bit DLL is registered correctly.
-; `regserver` calls DllRegisterServer, which registers the profile under the
-; Japanese langid enabled by default — so no per-user step is needed.
-Source: "..\target\x86_64-pc-windows-msvc\release\ainukey.dll"; DestDir: "{app}"; Flags: ignoreversion regserver
+; uninstall, registering the profile under the Japanese langid (no per-user step).
+; The TSF DLL is loaded by Windows text services once registered, so on an UPGRADE
+; the old copy is in use and can't be deleted (the "DeleteFile error, code 5 /
+; access denied" users hit). `restartreplace` makes Setup schedule the replacement
+; for the next reboot instead of showing the retry/skip error (skipping the core
+; DLL would leave a broken install); `uninsrestartdelete` does the same on
+; uninstall. First-time installs (nothing loaded) replace normally, no reboot.
+Source: "..\target\x86_64-pc-windows-msvc\release\ainukey.dll"; DestDir: "{app}"; Flags: ignoreversion regserver restartreplace uninsrestartdelete
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
