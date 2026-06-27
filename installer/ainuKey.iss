@@ -37,15 +37,16 @@ UninstallDisplayIcon={app}\ainukey.dll
 ShowLanguageDialog=yes
 
 [Languages]
-; All five ship with Inno Setup 6.5.0+ — Chinese (Simplified) and Korean were
-; promoted from "unofficial" to official in 6.5.0, so no vendored .isl is needed
-; (requires ISCC >= 6.5.0 on the build runner). Ainu (Aynu itak) is a separate,
-; attested-only locale built in its own PR.
+; English / Japanese / Russian ship with Inno Setup. Chinese (Simplified) and
+; Korean are NOT in the released ISCC's Languages folder (Chinese isn't in any
+; 6.7.x release yet; verified empirically — the build fails to open them), so
+; both are vendored under installer/i18n/ (community translations, UTF-8 BOM).
+; Ainu (Aynu itak) is a separate attested-only locale built in its own PR.
 Name: "english";           MessagesFile: "compiler:Default.isl"
 Name: "japanese";          MessagesFile: "compiler:Languages\Japanese.isl"
 Name: "russian";           MessagesFile: "compiler:Languages\Russian.isl"
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
-Name: "korean";            MessagesFile: "compiler:Languages\Korean.isl"
+Name: "chinesesimplified"; MessagesFile: "i18n\ChineseSimplified.isl"
+Name: "korean";            MessagesFile: "i18n\Korean.isl"
 
 [Files]
 ; `regserver` calls DllRegisterServer on install and DllUnregisterServer on
