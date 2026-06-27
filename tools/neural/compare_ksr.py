@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -37,7 +38,9 @@ from bench_ngrams import OTHER, load  # noqa: E402
 from ngram_lib import BlendModel, Model, PruneCfg, candidate_list  # noqa: E402
 from train import BOS, LSTMLM, PAD, UNK  # noqa: E402
 
-CORPUS = Path("../ainu-corpora/data.jsonl")
+# $AINU_CORPUS, else a sibling `ainu-corpora` checkout (run from the repo root);
+# --corpus overrides. No hardcoded home path.
+CORPUS = Path(os.environ.get("AINU_CORPUS", "../ainu-corpora/data.jsonl"))
 MAXCAND = 9
 SLOTS = MAXCAND - 1
 

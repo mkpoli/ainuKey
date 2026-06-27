@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from collections import Counter
 from pathlib import Path
@@ -29,7 +30,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ngram_lib import iter_records, tokenize  # noqa: E402
 
-DEFAULT_CORPUS = Path("../ainu-corpora/data.jsonl")
+# $AINU_CORPUS, else a sibling `ainu-corpora` checkout (run from the repo root);
+# --corpus overrides. No hardcoded home path.
+DEFAULT_CORPUS = Path(os.environ.get("AINU_CORPUS", "../ainu-corpora/data.jsonl"))
 DEFAULT_OUT = Path(__file__).resolve().parent.parent.parent / "data" / "neural"
 
 # Special tokens (ids 0..2 are reserved; real words start at 3).
