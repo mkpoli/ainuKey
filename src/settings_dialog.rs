@@ -58,7 +58,8 @@ fn checkbox_specs(cfg: &Config) -> [(i32, PCWSTR, bool); 6] {
         (
             ID_GLIDES,
             w!("y/w の半母音を ィ/ゥ で表記 / Small glides ィ/ゥ"),
-            cfg.orthography.use_small_i || cfg.orthography.use_small_u,
+            // Checked only when both codas are on (the box represents both-or-none).
+            cfg.orthography.use_small_i && cfg.orthography.use_small_u,
         ),
         (
             ID_EQUALS,
@@ -290,11 +291,15 @@ unsafe fn apply(hwnd: HWND) {
     } else {
         TuStyle::To
     };
-    // The single "small glides" checkbox toggles both the y- and w-codas; the
-    // per-coda options (and ㇴ, ヰ/ヱ/ヲ, the full tu set) are config-file only.
+    // The single "small glides" checkbox can only represent both-on or both-off,
+    // so it must not clobber an asymmetric per-coda state set via the config file
+    // (e.g. use_small_i=true, use_small_u=false). Write both fields only when they
+    // already agree, or when the user turns the option on.
     let glides = checked(ID_GLIDES);
-    cfg.orthography.use_small_i = glides;
-    cfg.orthography.use_small_u = glides;
+    if glides || cfg.orthography.use_small_i == cfg.orthography.use_small_u {
+        cfg.orthography.use_small_i = glides;
+        cfg.orthography.use_small_u = glides;
+    }
     cfg.orthography.show_equals_boundary = checked(ID_EQUALS);
     cfg.suggestions.enabled = checked(ID_SUGGEST);
 
