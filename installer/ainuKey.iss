@@ -1,4 +1,4 @@
-; Inno Setup script for ainuKey — installs and registers the TSF IME DLL.
+﻿; Inno Setup script for ainuKey — installs and registers the TSF IME DLL.
 ;
 ; Build:
 ;   ISCC.exe /DMyAppVersion=0.1.0 installer\ainuKey.iss
@@ -33,6 +33,19 @@ WizardStyle=modern
 LicenseFile=..\LICENSE
 UninstallDisplayName={#MyAppName}
 UninstallDisplayIcon={app}\ainukey.dll
+; Always offer the language picker at startup (more than one language below).
+ShowLanguageDialog=yes
+
+[Languages]
+; All five ship with Inno Setup 6.5.0+ — Chinese (Simplified) and Korean were
+; promoted from "unofficial" to official in 6.5.0, so no vendored .isl is needed
+; (requires ISCC >= 6.5.0 on the build runner). Ainu (Aynu itak) is a separate,
+; attested-only locale built in its own PR.
+Name: "english";           MessagesFile: "compiler:Default.isl"
+Name: "japanese";          MessagesFile: "compiler:Languages\Japanese.isl"
+Name: "russian";           MessagesFile: "compiler:Languages\Russian.isl"
+Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "korean";            MessagesFile: "compiler:Languages\Korean.isl"
 
 [Files]
 ; `regserver` calls DllRegisterServer on install and DllUnregisterServer on
@@ -44,5 +57,10 @@ Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; Flags: ignoreversion
 
 [Messages]
-; Shown on the final page.
-FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.
+; Final-page instruction, per language. The technical step (switch input + type
+; romaji) is the same everywhere; only the wording is localized.
+english.FinishedLabel=ainuKey was installed. Switch input (Win+Space) to ainuKey (listed under Japanese) and type romaji.
+japanese.FinishedLabel=ainuKeyをインストールしました。入力切替（Win+Space）でainuKey（「日本語」の下に表示されます）を選び、ローマ字で入力してください。
+russian.FinishedLabel=ainuKey установлен. Переключите ввод (Win+Space) на ainuKey (в разделе «Японский») и печатайте латиницей (ромадзи).
+chinesesimplified.FinishedLabel=ainuKey 已安装。请用 Win+Space 将输入法切换到 ainuKey（位于“日语”下方），然后输入罗马字。
+korean.FinishedLabel=ainuKey가 설치되었습니다. 입력 전환(Win+Space)에서 ainuKey(“일본어” 아래에 표시됨)를 선택하고 로마자로 입력하세요.
