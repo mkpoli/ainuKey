@@ -78,15 +78,29 @@ impl Default for Orthography {
     }
 }
 
+/// Which prediction engine drives the candidate window.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Engine {
+    /// The n-gram model (small, pure Rust; the default).
+    #[default]
+    Ngram,
+    /// The neural LSTM model (full-sentence context; needs the bundled model).
+    /// Falls back to the n-gram engine if the model is not present.
+    Neural,
+}
+
 /// Suggestion / candidate-window options.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Suggestions {
-    /// Show the candidate window with n-gram suggestions.
+    /// Show the candidate window with word suggestions.
     pub enabled: bool,
+    /// Prediction engine: `ngram` (default) or `neural`.
+    pub engine: Engine,
     /// Maximum candidates in the list.
     pub max_candidates: usize,
-    /// Re-rank completions by trigram/bigram context.
+    /// Re-rank completions by trigram/bigram context (n-gram engine only).
     pub context_aware: bool,
 }
 
@@ -94,6 +108,7 @@ impl Default for Suggestions {
     fn default() -> Self {
         Self {
             enabled: true,
+            engine: Engine::Ngram,
             max_candidates: 9,
             context_aware: true,
         }

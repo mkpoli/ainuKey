@@ -72,6 +72,7 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         state.candidates = crate::candidates::CandidateList::default();
         state.last_committed = None;
         state.prev_committed = None;
+        state.committed_words.clear();
         // Release the thread manager LAST.
         state.thread_mgr = None;
         Ok(())

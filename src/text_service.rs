@@ -47,6 +47,10 @@ pub struct TextServiceState {
     pub last_committed: Option<String>,
     /// The word before that — with `last_committed`, the trigram context.
     pub prev_committed: Option<String>,
+    /// Recent committed words (Latin), oldest→newest, as full-sentence context
+    /// for the neural engine. A sliding window (see composition.rs); cleared on
+    /// deactivation.
+    pub committed_words: Vec<String>,
 }
 
 impl Default for TextServiceState {
@@ -65,6 +69,7 @@ impl Default for TextServiceState {
             candidates: CandidateList::default(),
             last_committed: None,
             prev_committed: None,
+            committed_words: Vec::new(),
         }
     }
 }
