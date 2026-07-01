@@ -98,16 +98,21 @@ impl TextService_Impl {
     fn would_eat(&self, wparam: WPARAM, lparam: LPARAM) -> (bool, Action) {
         let action = decode(wparam, lparam);
         let has_composition = !self.inner().buffer.is_empty();
+        let predicting = self.inner().predicting;
         let eaten = match action {
             // In Latin mode we eat nothing, so letters pass straight through to
             // the app; in Kana mode we capture them to build the composition.
             Action::Insert(_) => self.inner().mode.get() == Mode::Kana,
-            Action::Commit
-            | Action::Backspace
-            | Action::Cancel
-            | Action::SelectNext
-            | Action::SelectPrev
-            | Action::SelectIndex(_) => has_composition,
+            // A number key accepts a next-word prediction (when predicting and in
+            // range) or picks a completion candidate (when composing).
+            Action::SelectIndex(i) => {
+                has_composition || (predicting && i < self.inner().candidates.len())
+            }
+            // Escape dismisses either the composition or the prediction popup.
+            Action::Cancel => has_composition || predicting,
+            Action::Commit | Action::Backspace | Action::SelectNext | Action::SelectPrev => {
+                has_composition
+            }
             Action::Passthrough => false,
         };
         (eaten, action)
@@ -150,6 +155,11 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         let (eaten, action) = self.would_eat(wparam, lparam);
         if eaten {
             self.handle_action(&context, action)?;
+        } else if self.inner().predicting {
+            // Any key we don't eat (space, Enter, an out-of-range digit, …) is
+            // the user moving on: drop the prediction popup but let the keystroke
+            // reach the app unchanged.
+            self.dismiss_prediction();
         }
         Ok(eaten.into())
     }

@@ -17,6 +17,7 @@ use windows::Win32::UI::TextServices::{
 
 use crate::edit_session::run_sync;
 use crate::key_event_sink::Action;
+use crate::lang_bar::Mode;
 use crate::text_service::TextService_Impl;
 
 /// Build a `VT_I4` VARIANT holding `value` (the display-attribute atom).
@@ -70,6 +71,10 @@ impl TextService_Impl {
     ) -> windows::core::Result<()> {
         match action {
             Action::Insert(c) => {
+                // Typing supersedes any next-word prediction popup.
+                if self.inner().predicting {
+                    self.dismiss_prediction();
+                }
                 if self.inner().buffer.is_empty() {
                     self.start_composition(context)?;
                 }
@@ -88,7 +93,12 @@ impl TextService_Impl {
                 self.commit(context)?;
             }
             Action::Cancel => {
-                self.cancel(context)?;
+                // Escape dismisses a prediction popup (no composition to cancel).
+                if self.inner().predicting {
+                    self.dismiss_prediction();
+                } else {
+                    self.cancel(context)?;
+                }
             }
             Action::SelectNext => {
                 self.inner_mut().candidates.select_next();
@@ -99,7 +109,11 @@ impl TextService_Impl {
                 self.show_candidates();
             }
             Action::SelectIndex(i) => {
-                if self.inner_mut().candidates.select_index(i) {
+                // A number key either accepts a next-word prediction (no
+                // composition) or picks a completion candidate (composition).
+                if self.inner().predicting {
+                    self.accept_prediction(context, i)?;
+                } else if self.inner_mut().candidates.select_index(i) {
                     self.commit(context)?;
                 }
             }
@@ -196,13 +210,17 @@ impl TextService_Impl {
             }
         })?;
         self.hide_candidates();
-        let mut state = self.inner_mut();
-        state.composition = None;
-        state.buffer.clear();
-        state.candidates = crate::candidates::CandidateList::default();
-        // Shift the committed-word history (prev2, prev1) for trigram context.
-        state.prev_committed = state.last_committed.take();
-        state.last_committed = Some(chosen);
+        {
+            let mut state = self.inner_mut();
+            state.composition = None;
+            state.buffer.clear();
+            state.candidates = crate::candidates::CandidateList::default();
+            // Shift the committed-word history (prev2, prev1) for trigram context.
+            state.prev_committed = state.last_committed.take();
+            state.last_committed = Some(chosen);
+        }
+        // Offer next-word predictions for the word the user is about to type.
+        self.begin_prediction(context);
         Ok(())
     }
 
@@ -229,6 +247,7 @@ impl TextService_Impl {
         state.composition = None;
         state.buffer.clear();
         state.candidates = crate::candidates::CandidateList::default();
+        state.predicting = false;
         Ok(())
     }
 }
@@ -244,6 +263,7 @@ impl ITfCompositionSink_Impl for TextService_Impl {
         state.composition = None;
         state.buffer.clear();
         state.candidates = crate::candidates::CandidateList::default();
+        state.predicting = false;
         Ok(())
     }
 }
@@ -306,6 +326,103 @@ impl TextService_Impl {
         if let Some(win) = state.candidate_window.as_ref() {
             win.hide();
         }
+    }
+
+    /// After a commit, show *next-word* predictions (the word likely to follow the
+    /// just-committed words) with no active composition, so the user can pick the
+    /// continuation with a number key. Gated on the `context_aware` suggestion
+    /// switch (its natural off-switch) and Kana mode. No-op if the engine has no
+    /// prediction to offer.
+    fn begin_prediction(&self, _context: &ITfContext) {
+        let sug = crate::config::current().suggestions;
+        if !sug.enabled || !sug.context_aware || self.inner().mode.get() != Mode::Kana {
+            return;
+        }
+        let (prev2, prev1) = {
+            let state = self.inner();
+            (state.prev_committed.clone(), state.last_committed.clone())
+        };
+        let list = match crate::suggest::global() {
+            Some(s) => crate::candidates::CandidateList::predictions(
+                prev2.as_deref(),
+                prev1.as_deref(),
+                s,
+                sug.max_candidates,
+            ),
+            None => return,
+        };
+        if list.is_empty() {
+            return;
+        }
+        {
+            let mut state = self.inner_mut();
+            state.candidates = list;
+            state.predicting = true;
+        }
+        self.show_candidates();
+    }
+
+    /// Accept the `index`-th next-word prediction: insert it as committed text,
+    /// shift the trigram history, and chain into the next prediction. No-op if
+    /// `index` is out of range.
+    fn accept_prediction(&self, context: &ITfContext, index: usize) -> windows::core::Result<()> {
+        let chosen = match self.inner().candidates.items().get(index) {
+            Some(w) => w.clone(),
+            None => return Ok(()),
+        };
+        self.insert_committed(context, &chosen)?;
+        {
+            let mut state = self.inner_mut();
+            state.predicting = false;
+            state.candidates = crate::candidates::CandidateList::default();
+            state.prev_committed = state.last_committed.take();
+            state.last_committed = Some(chosen);
+        }
+        self.hide_candidates();
+        // Chain: predict the word after the one we just inserted.
+        self.begin_prediction(context);
+        Ok(())
+    }
+
+    /// Insert `latin` (converted to kana) as finalized text at the caret, with no
+    /// lingering composition. Mirrors [`commit`](Self::commit) but seeds the text
+    /// directly instead of reading the buffer, and opens its own short-lived
+    /// composition since there is none when predicting.
+    fn insert_committed(&self, context: &ITfContext, latin: &str) -> windows::core::Result<()> {
+        let kana: Vec<u16> =
+            crate::kana::convert_with(latin, &crate::config::current().orthography)
+                .encode_utf16()
+                .collect();
+        let cc: ITfContextComposition = context.cast()?;
+        let insert: ITfInsertAtSelection = context.cast()?;
+        let sink: ITfCompositionSink = self.to_interface();
+        let cid = self.inner().client_id;
+        let ctx = context.clone();
+
+        run_sync(cid, context, move |ec| {
+            // SAFETY: ec valid inside the session; cc/insert/ctx are valid.
+            unsafe {
+                let range = insert.InsertTextAtSelection(ec, TF_IAS_QUERYONLY, &[])?;
+                let comp = cc.StartComposition(ec, &range, &sink)?;
+                let crange = comp.GetRange()?;
+                crange.SetText(ec, TF_ST_CORRECTION, &kana)?;
+                ctx.GetProperty(&GUID_PROP_ATTRIBUTE)?.Clear(ec, &crange)?;
+                crange.Collapse(ec, TF_ANCHOR_END)?;
+                set_single_selection(&ctx, ec, &crange)?;
+                comp.EndComposition(ec)?;
+                Ok(())
+            }
+        })
+    }
+
+    /// Tear down the next-word prediction popup without inserting anything.
+    pub(crate) fn dismiss_prediction(&self) {
+        {
+            let mut state = self.inner_mut();
+            state.predicting = false;
+            state.candidates = crate::candidates::CandidateList::default();
+        }
+        self.hide_candidates();
     }
 }
 

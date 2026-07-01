@@ -43,6 +43,11 @@ pub struct TextServiceState {
     pub candidate_window: Option<CandidateWindow>,
     /// Candidate list for the current composition.
     pub candidates: CandidateList,
+    /// True while the candidate window is showing *next-word predictions* with no
+    /// active composition (i.e. just after a commit, before the user types the
+    /// next word). Distinguishes the predictive popup from the completion popup so
+    /// the key handler can gate on it. See `composition::begin_prediction`.
+    pub predicting: bool,
     /// The last word we committed (Latin) — the bigram prediction context.
     pub last_committed: Option<String>,
     /// The word before that — with `last_committed`, the trigram context.
@@ -63,6 +68,7 @@ impl Default for TextServiceState {
             langbar_item: None,
             candidate_window: None,
             candidates: CandidateList::default(),
+            predicting: false,
             last_committed: None,
             prev_committed: None,
         }
