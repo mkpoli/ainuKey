@@ -88,6 +88,67 @@ impl CandidateList {
         Self { items, selected: 0 }
     }
 
+    /// Build a *next-word* prediction list — used when nothing is being typed
+    /// yet (empty composition buffer), to suggest the word likely to *follow* the
+    /// committed words (`prev2`, `prev1`). This is the predictive counterpart to
+    /// [`build`](Self::build), which only *completes the current word*.
+    ///
+    /// Ranking: the blended trigram+bigram scores from
+    /// [`Suggestions::predict_scores`](crate::suggest::Suggestions::predict_scores)
+    /// come first (best score first; ties broken alphabetically for a stable
+    /// order), then the globally most-frequent words fill any remaining slots so
+    /// the popup is still useful at a cold start (no known context). The list is
+    /// duplicate-free and capped at `max`. Unlike [`build`](Self::build) there is
+    /// no "typed word" at index 0 — every entry is a real predicted word.
+    ///
+    /// Returns an empty list only when the engine knows no words at all.
+    pub fn predictions(
+        prev2: Option<&str>,
+        prev1: Option<&str>,
+        suggest: &Suggestions,
+        max: usize,
+    ) -> Self {
+        // Context-scored candidates first (needs at least the bigram context).
+        let mut ranked: Vec<(String, f64)> = match prev1 {
+            Some(p1) => suggest
+                .predict_scores(prev2, p1)
+                .into_iter()
+                .collect::<Vec<_>>(),
+            None => Vec::new(),
+        };
+        // Highest score first; alphabetical tie-break keeps the order stable
+        // (HashMap iteration order is otherwise nondeterministic).
+        ranked.sort_by(|a, b| {
+            b.1.partial_cmp(&a.1)
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then_with(|| a.0.cmp(&b.0))
+        });
+
+        let mut items = Vec::with_capacity(max);
+        let mut seen = HashSet::new();
+        for (w, _) in ranked {
+            if items.len() >= max {
+                break;
+            }
+            if seen.insert(w.clone()) {
+                items.push(w);
+            }
+        }
+        // Fill remaining slots with the most frequent words overall so the popup
+        // is populated even when the context is unknown or sparse.
+        if items.len() < max {
+            for (w, _) in suggest.default_words(max) {
+                if items.len() >= max {
+                    break;
+                }
+                if seen.insert(w.clone()) {
+                    items.push(w.clone());
+                }
+            }
+        }
+        Self { items, selected: 0 }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
@@ -293,6 +354,45 @@ mod tests {
         assert_eq!(c.selected(), 1);
         assert!(!c.select_index(999)); // rejected
         assert_eq!(c.selected(), 1); // unchanged
+    }
+
+    #[test]
+    fn predictions_use_context_first() {
+        let s = suggest();
+        // Bigram "ku" → kamui, so kamui is the top prediction after "ku"; the
+        // remaining slots fall back to the most-frequent words.
+        let p = CandidateList::predictions(None, Some("ku"), &s, 8);
+        assert_eq!(p.items()[0], "kamui");
+        assert!(p.items().contains(&"kamuy".to_string())); // frequency fill
+    }
+
+    #[test]
+    fn predictions_trigram_beats_bigram() {
+        let s = suggest();
+        // Bigram "ku" → kamui, but trigram "a ku" → kamuy (higher blended score),
+        // so with both prevs kamuy ranks ahead of kamui.
+        let p = CandidateList::predictions(Some("a"), Some("ku"), &s, 8);
+        assert!(pos(&p, "kamuy") < pos(&p, "kamui"));
+    }
+
+    #[test]
+    fn predictions_cold_start_uses_frequency() {
+        let s = suggest();
+        // No context → the globally most-frequent word leads (kamuy, count 1000).
+        let p = CandidateList::predictions(None, None, &s, 8);
+        assert_eq!(p.items()[0], "kamuy");
+        assert!(!p.is_empty());
+    }
+
+    #[test]
+    fn predictions_respect_max_and_dedup() {
+        let s = suggest();
+        let p = CandidateList::predictions(None, Some("ku"), &s, 2);
+        assert_eq!(p.len(), 2);
+        let mut uniq = p.items().to_vec();
+        uniq.sort();
+        uniq.dedup();
+        assert_eq!(uniq.len(), p.len(), "predictions must be duplicate-free");
     }
 
     #[test]
