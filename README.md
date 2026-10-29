@@ -61,6 +61,18 @@ Requires [Rust](https://rustup.rs) and the MSVC toolchain + Windows SDK
 
 https://zenn.dev/mkpoli/scraps/6dc57fcd0335cf
 
+## <span lang="ja">スポンサー</span> / Sponsor
+
+<p lang="ja">
+    ainuKeyは、アイヌ語が好きで、一人で作っています。今は仕事がなく、わずかなTAの給料では家賃や食費もまかなえません。<a href="https://ko-fi.com/mkpoli">Ko-fi</a>で1ドルでも応援していただけると、今日のごはん代になります。企業スポンサーのご相談はmkpoli@mkpo.liまでどうぞ。
+</p>
+
+<p>
+    I make ainuKey alone, out of love for the Ainu language. I don't have a job, and my small TA pay doesn't cover rent and food. Even one dollar on <a href="https://ko-fi.com/mkpoli">Ko-fi</a> helps me eat today. Companies interested in sponsoring can write to mkpoli@mkpo.li.
+</p>
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/mkpoli)
+
 ## License
 
 MIT © 2024–2026 mkpoli — see [LICENSE](LICENSE).
