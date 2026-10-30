@@ -64,11 +64,11 @@ https://zenn.dev/mkpoli/scraps/6dc57fcd0335cf
 ## <span lang="ja">スポンサー</span> / Sponsor
 
 <p lang="ja">
-    ainuKeyは、アイヌ語が好きで、一人で作っています。今は仕事がなく、わずかなTAの給料では家賃や食費もまかなえません。<a href="https://ko-fi.com/mkpoli">Ko-fi</a>で1ドルでも応援していただけると、今日のごはん代になります。企業スポンサーのご相談はmkpoli@mkpo.liまでどうぞ。
+    ainuKeyは個人で開発しており、外部からの資金援助はなく、どなたでも無料でご利用いただけます。お役に立っているようでしたら、<a href="https://ko-fi.com/mkpoli">Ko-fi</a>でチップをいただけると、改善を続ける時間になります。スポンサーにご興味のある企業様は、mkpoli@mkpo.liまでご連絡ください。
 </p>
 
 <p>
-    I make ainuKey alone, out of love for the Ainu language. I don't have a job, and my small TA pay doesn't cover rent and food. Even one dollar on <a href="https://ko-fi.com/mkpoli">Ko-fi</a> helps me eat today. Companies interested in sponsoring can write to mkpoli@mkpo.li.
+    I build ainuKey on my own, with no funding behind it, and it's free for everyone. If it's useful to you, a tip on <a href="https://ko-fi.com/mkpoli">Ko-fi</a> gives me time to keep improving it. Companies interested in sponsoring can write to mkpoli@mkpo.li.
 </p>
 
 [![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/mkpoli)
