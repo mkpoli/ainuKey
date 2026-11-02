@@ -61,6 +61,18 @@ Requires [Rust](https://rustup.rs) and the MSVC toolchain + Windows SDK
 
 https://zenn.dev/mkpoli/scraps/6dc57fcd0335cf
 
+## <span lang="ja">スポンサー</span> / Sponsor
+
+<p lang="ja">
+    ainuKeyは個人で開発しており、外部からの資金援助はなく、どなたでも無料でご利用いただけます。お役に立っているようでしたら、<a href="https://ko-fi.com/mkpoli">Ko-fi</a>または<a href="https://ofuse.me/mkpoli">OFUSE</a>でチップをいただけると、改善を続ける時間になります。スポンサーにご興味のある企業様は、mkpoli@mkpo.liまでご連絡ください。
+</p>
+
+<p>
+    I build ainuKey on my own, with no funding behind it, and it's free for everyone. If it's useful to you, a tip on <a href="https://ko-fi.com/mkpoli">Ko-fi</a> or <a href="https://ofuse.me/mkpoli">OFUSE</a> gives me time to keep improving it. Companies interested in sponsoring can write to mkpoli@mkpo.li.
+</p>
+
+[![Support me on Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/mkpoli)
+
 ## License
 
 MIT © 2024–2026 mkpoli — see [LICENSE](LICENSE).
